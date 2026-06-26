@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LS2 Build Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0d0d0e; --surface:#141415; --raised:#1c1c1e; --inset:#0a0a0b;
+  --orange:#e8650a; --orange-hi:#ff7c20; --orange-dim:#7a3506; --orange-soft:#2a1806;
+  --chrome:#c8c8cc; --chrome-dim:#6e6e73;
+  --text:#f0f0f0; --muted:#8a8a8e; --faint:#3a3a3c;
+  --border:#252528; --border-hi:#3a3a3e;
+  --ok:#3d9e6a; --warn:#d4930c; --bad:#d63b3b; --info:#4a90d9;
+  --phase-w:220px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Space Grotesk',system-ui,sans-serif;background:var(--bg);color:var(--text);
+  min-height:100vh;overflow-x:hidden}
+
+/* ─── LAYOUT ─── */
+.app{display:flex;flex-direction:column;min-height:100vh}
+.topbar{display:flex;align-items:center;gap:16px;padding:12px 20px;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:50}
+.topbar .logo{font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:700;
+  letter-spacing:3px;text-transform:uppercase;color:var(--orange)}
+.topbar .title{font-size:1.05rem;font-weight:600;color:var(--text)}
+.topbar .sub{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted);
+  letter-spacing:1px;text-transform:uppercase;margin-left:auto}
+.topbar .budget-pill{font-family:'JetBrains Mono',monospace;font-size:.75rem;
+  background:var(--raised);border:1px solid var(--border-hi);border-radius:20px;
+  padding:4px 12px;color:var(--chrome)}
+.topbar .budget-pill span{color:var(--orange-hi);font-weight:700}
+
+.body{display:flex;flex:1}
+
+/* ─── PHASE RAIL ─── */
+.phase-rail{width:var(--phase-w);background:var(--surface);border-right:1px solid var(--border);
+  padding:16px 0;position:sticky;top:49px;height:calc(100vh - 49px);overflow-y:auto;flex-shrink:0}
+.rail-head{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:2px;
+  text-transform:uppercase;color:var(--muted);padding:0 16px 12px}
+.phase-btn{width:100%;text-align:left;background:none;border:none;cursor:pointer;
+  padding:10px 16px 10px 20px;position:relative;transition:background .12s}
+.phase-btn::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:transparent;transition:background .12s}
+.phase-btn:hover{background:var(--raised)}
+.phase-btn.active{background:var(--raised)}
+.phase-btn.active::before{background:var(--orange)}
+.phase-btn .ph-num{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:2px}
+.phase-btn .ph-name{font-size:.88rem;font-weight:600;color:var(--text)}
+.phase-btn.active .ph-name{color:var(--orange-hi)}
+.phase-btn .ph-bar{height:3px;background:var(--inset);border-radius:2px;margin-top:6px;overflow:hidden}
+.phase-btn .ph-bar i{display:block;height:100%;border-radius:2px;background:var(--orange);transition:width .3s}
+.phase-btn .ph-pct{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--chrome-dim);margin-top:3px}
+.rail-sep{height:1px;background:var(--border);margin:8px 16px}
+.rail-nav-btn{width:100%;text-align:left;background:none;border:none;cursor:pointer;
+  padding:10px 16px;font-family:'Space Grotesk',sans-serif;font-size:.85rem;color:var(--muted);transition:all .12s}
+.rail-nav-btn:hover{color:var(--text);background:var(--raised)}
+.rail-nav-btn.active{color:var(--orange-hi);background:var(--raised)}
+
+/* ─── MAIN CONTENT ─── */
+.main{flex:1;padding:24px;overflow-y:auto;max-height:calc(100vh - 49px)}
+
+/* ─── SECTION HEADERS ─── */
+.sec-head{display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.sec-title{font-size:1.2rem;font-weight:700;letter-spacing:-.3px}
+.sec-tag{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:2px;
+  text-transform:uppercase;color:var(--orange);margin-bottom:2px}
+
+/* ─── CARDS ─── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:16px;margin-bottom:12px}
+.card.orange-l{border-left:3px solid var(--orange)}
+.card.ok-l{border-left:3px solid var(--ok)}
+.card.warn-l{border-left:3px solid var(--warn)}
+.card.bad-l{border-left:3px solid var(--bad)}
+
+/* ─── BUDGET DASHBOARD ─── */
+.bud-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:20px}
+.bud-tile{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:14px;text-align:center;position:relative;overflow:hidden}
+.bud-tile::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:var(--orange);opacity:.5}
+.bud-tile .tv{font-family:'JetBrains Mono',monospace;font-size:1.3rem;font-weight:700;color:var(--orange-hi)}
+.bud-tile .tl{font-size:.65rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-top:3px}
+.bud-bar-wrap{background:var(--inset);border:1px solid var(--border);border-radius:4px;padding:14px;margin-bottom:20px}
+.bud-phase-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:.82rem}
+.bud-phase-row .pn{width:160px;flex-shrink:0;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.bud-phase-row .bar{flex:1;height:8px;background:var(--bg);border-radius:2px;overflow:hidden}
+.bud-phase-row .bar i{display:block;height:100%;border-radius:2px;background:var(--orange)}
+.bud-phase-row .amt{width:80px;text-align:right;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--chrome)}
+
+/* ─── PHASE VIEW ─── */
+.phase-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
+.pm-tile{background:var(--inset);border:1px solid var(--border);border-radius:4px;padding:12px;text-align:center}
+.pm-tile .v{font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:700;color:var(--orange-hi)}
+.pm-tile .l{font-size:.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-top:3px}
+
+/* ─── TASKS ─── */
+.task-list{display:grid;gap:6px;margin-bottom:20px}
+.task-item{display:flex;align-items:flex-start;gap:10px;background:var(--raised);
+  border:1px solid var(--border);border-radius:4px;padding:10px 12px;cursor:pointer;transition:background .1s}
+.task-item:hover{background:var(--surface)}
+.task-item.done{opacity:.55}
+.task-item.done .task-text{text-decoration:line-through;color:var(--muted)}
+.task-cb{width:18px;height:18px;border:1px solid var(--border-hi);border-radius:3px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;margin-top:1px;transition:all .1s}
+.task-item.done .task-cb{background:var(--ok);border-color:var(--ok)}
+.task-text{font-size:.88rem;line-height:1.4}
+.task-torque{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--orange);
+  margin-top:3px;display:block}
+
+/* ─── PARTS ─── */
+.part-filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.pf-btn{font-size:.72rem;padding:4px 10px;border:1px solid var(--border);border-radius:14px;
+  background:none;color:var(--muted);cursor:pointer;font-family:'Space Grotesk',sans-serif;transition:all .1s}
+.pf-btn.active{border-color:var(--orange);color:var(--orange-hi);background:var(--orange-soft)}
+
+.part-table{width:100%;border-collapse:collapse;font-size:.82rem}
+.part-table th{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);
+  font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
+.part-table td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+.part-table tr:last-child td{border-bottom:none}
+.status-pill{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;
+  font-weight:700;padding:2px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:.5px;cursor:pointer}
+.s-needed{background:#2a1818;color:#e06060;border:1px solid #4a2222}
+.s-ordered{background:#1a1f2a;color:#5a9fd4;border:1px solid #254065}
+.s-inhand{background:#1a2a1f;color:#5dba8a;border:1px solid #254035}
+.s-installed{background:#222;color:var(--muted);border:1px solid var(--border)}
+.pn-code{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--chrome-dim)}
+.cost-num{font-family:'JetBrains Mono',monospace;font-size:.82rem;text-align:right}
+.del-x{color:var(--muted);cursor:pointer;font-weight:700;padding:2px 6px;border-radius:3px;font-family:monospace;font-size:.9rem}
+.del-x:hover{color:var(--bad);background:var(--inset)}
+
+/* ─── PART ADD FORM ─── */
+.part-form{background:var(--inset);border:1px solid var(--border);border-radius:4px;padding:14px;margin-bottom:16px;display:grid;gap:8px}
+.pf-row{display:grid;gap:8px}
+@media(min-width:600px){.pf-row.c2{grid-template-columns:1fr 1fr}.pf-row.c3{grid-template-columns:1fr 1fr 1fr}.pf-row.c4{grid-template-columns:2fr 1fr 1fr 1fr}}
+.fld{font-family:'JetBrains Mono',monospace;font-size:.6rem;text-transform:uppercase;
+  letter-spacing:1.5px;color:var(--muted);margin-bottom:3px;display:block}
+input,select,textarea{padding:9px;background:var(--bg);border:1px solid var(--border);color:var(--text);
+  border-radius:4px;font-size:.88rem;font-family:'Space Grotesk',sans-serif;width:100%}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--orange)}
+select option{background:var(--bg)}
+
+/* ─── BUTTONS ─── */
+.btn{padding:9px 16px;background:var(--orange);color:#0d0d0e;border:none;border-radius:4px;
+  font-family:'Space Grotesk',sans-serif;font-weight:700;text-transform:uppercase;cursor:pointer;
+  letter-spacing:.5px;font-size:.78rem;transition:background .12s}
+.btn:hover{background:var(--orange-hi)}
+.btn:active{transform:translateY(1px)}
+.btn.ghost{background:transparent;color:var(--orange-hi);border:1px solid var(--orange);box-shadow:none}
+.btn.ghost:hover{background:var(--orange-soft)}
+.btn.sm{padding:6px 11px;font-size:.7rem}
+.btn.danger{background:var(--bad);color:#fff}
+
+/* ─── TORQUE TAB ─── */
+.torque-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
+.torque-section{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:14px}
+.torque-section h4{font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:2px;
+  text-transform:uppercase;color:var(--orange);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.torque-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;
+  padding:6px 0;border-bottom:1px solid var(--inset);font-size:.84rem}
+.torque-row:last-child{border-bottom:none}
+.torque-row .spec{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--orange-hi);text-align:right}
+.torque-row .note{font-size:.68rem;color:var(--muted);margin-top:2px}
+.torque-warn{background:var(--orange-soft);border:1px solid var(--orange-dim);border-radius:4px;
+  padding:10px 12px;font-size:.78rem;line-height:1.5;margin-bottom:14px;color:var(--chrome)}
+
+/* ─── NOTES ─── */
+.note-item{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--orange-dim);
+  border-radius:0 4px 4px 0;padding:12px;margin-bottom:8px}
+.note-meta{display:flex;justify-content:space-between;margin-bottom:4px}
+.note-date{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted)}
+.note-phase{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--orange);
+  background:var(--orange-soft);padding:1px 6px;border-radius:10px}
+.note-text{font-size:.88rem;line-height:1.5;color:var(--chrome)}
+
+/* ─── MISC ─── */
+.empty{color:var(--muted);font-size:.85rem;padding:20px;text-align:center;font-style:italic}
+.sub-txt{font-size:.78rem;color:var(--muted);line-height:1.5;margin-bottom:14px}
+.tag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;
+  padding:2px 7px;border-radius:10px;border:1px solid var(--border);color:var(--muted);margin-right:4px}
+.foot{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--faint);
+  text-align:center;padding:12px;letter-spacing:.5px}
+.foot a{color:var(--orange-dim);cursor:pointer}
+
+@media(max-width:700px){
+  .phase-rail{display:none}
+  .phase-rail.mobile-open{display:block;position:fixed;inset:0;z-index:40;overflow-y:auto;width:100%}
+  .topbar .menu-btn{display:flex}
+  .main{padding:14px}
+  /* topbar: drop the noisy bits, shrink title */
+  .topbar{gap:10px;padding:10px 12px}
+  .topbar .title{font-size:.9rem;line-height:1.15}
+  .topbar .sub{display:none}
+  .topbar .budget-pill{display:none}
+  .topbar .logo{display:none}
+  /* a compact spent total instead of the pill */
+  .topbar .mobile-total{display:block;margin-left:auto;font-family:'JetBrains Mono',monospace;
+    font-size:.72rem;color:var(--orange-hi);font-weight:700;white-space:nowrap}
+  /* parts table -> stacked cards */
+  .part-table thead{display:none}
+  .part-table, .part-table tbody, .part-table tr, .part-table td{display:block;width:100%}
+  .part-table tr{background:var(--raised);border:1px solid var(--border);border-radius:6px;
+    margin-bottom:10px;padding:10px 12px;position:relative}
+  .part-table td{border:none;padding:3px 0;text-align:left!important}
+  .part-table td:first-child{font-weight:600;font-size:.92rem;padding-right:24px}
+  /* label the data cells */
+  .part-table td.m-pn::before{content:"Part # ";color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.62rem}
+  .part-table td.m-vendor::before{content:"Vendor: ";color:var(--muted);font-size:.7rem}
+  .part-table td.m-qty::before{content:"Qty: ";color:var(--muted);font-size:.7rem}
+  .part-table td.m-unit::before{content:"Unit: ";color:var(--muted);font-size:.7rem}
+  .part-table td.m-total::before{content:"Total: ";color:var(--muted);font-size:.7rem}
+  .part-table td.cost-num, .part-table td.m-qty{text-align:left!important;display:inline-block;width:auto;margin-right:14px}
+  .part-table td.m-del{position:absolute;top:8px;right:8px;width:auto;padding:0}
+  .part-table tr td:last-child{padding:0}
+  /* phase total row stays simple */
+  .part-table tr.total-row{background:var(--inset)}
+  .part-table tr.total-row td{display:inline-block;width:auto}
+  /* forms stack */
+  .pf-row.c2,.pf-row.c3,.pf-row.c4{grid-template-columns:1fr!important}
+  .bud-grid{grid-template-columns:1fr 1fr}
+  .bud-phase-row{flex-wrap:wrap}
+  .bud-phase-row .pn{width:100%;margin-bottom:2px}
+  .bud-phase-row .bar{flex:1}
+  .torque-grid{grid-template-columns:1fr}
+}
+@media(min-width:701px){.menu-btn{display:none!important}.topbar .mobile-total{display:none}}
+.menu-btn{background:none;border:1px solid var(--border);color:var(--text);padding:5px 10px;
+  border-radius:4px;cursor:pointer;font-size:.8rem;font-family:'Space Grotesk',sans-serif}
+</style>
+</head>
+<body>
+<div class="app">
+
+<div class="topbar">
+  <button class="menu-btn" id="menuBtn">☰ Phases</button>
+  <div class="logo">LS2 // BUILD</div>
+  <div class="title">Brandon's SAP GTO — Engine &amp; Trans Rebuild</div>
+  <div class="sub">NA Street/Strip · 6.0L</div>
+  <div class="budget-pill">Spent: <span id="tb-spent">$0</span> &nbsp;|&nbsp; Remaining: <span id="tb-remain">$0</span></div>
+  <div class="mobile-total" id="tb-mobile">$0</div>
+</div>
+
+<div class="body">
+<div class="phase-rail" id="phaseRail">
+  <div class="rail-head">Build Phases</div>
+  <div id="phase-btns"></div>
+  <div class="rail-sep"></div>
+  <button class="rail-nav-btn" data-view="budget">💰 Budget</button>
+  <button class="rail-nav-btn" data-view="torque">🔧 Torque Specs</button>
+  <button class="rail-nav-btn" data-view="notes">📋 Build Notes</button>
+  <button class="rail-nav-btn" data-view="allparts">📦 All Parts</button>
+  <div class="rail-sep"></div>
+  <button class="rail-nav-btn" data-view="settings">⚙ Data</button>
+</div>
+
+<div class="main" id="main">
+  <!-- content injected by JS -->
+</div>
+</div>
+
+<div class="foot">Data saved on this device only. &nbsp;|&nbsp; <a id="exp">Export</a> &middot; <a id="imp">Import</a> &middot; <a id="wipe">Reset</a>
+<input type="file" id="impFile" accept="application/json" style="display:none"></div>
+</div><!-- /app -->
+
+<script>
+const K='ls2build.v1';
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const today=()=>new Date().toISOString().slice(0,10);
+const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const num=s=>{const n=parseFloat(String(s).replace(/[^0-9.]/g,''));return isNaN(n)?0:n;};
+const money=n=>n===0?'—':'$'+(Math.round(n*100)/100).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0});
+
+/* ────────────────────────────────────────
+   PHASE + TORQUE KNOWLEDGE BASE
+──────────────────────────────────────── */
+const PHASES=[
+  {id:'machine', num:'01', name:'Machine Shop', color:'#4a90d9', cat:'prep',
+   desc:'Boring, honing, crank grinding, head work, deck surfacing. This phase is entirely external — track what\'s out, what\'s done, and the cost.'},
+  {id:'shortblock', num:'02', name:'Short Block', color:'#e8650a', cat:'engine',
+   desc:'Main bearings, crank, pistons & rings, connecting rods, timing set, front cover, oil pump.'},
+  {id:'heads', num:'03', name:'Heads & Valvetrain', color:'#e8650a', cat:'engine',
+   desc:'Head gaskets, head bolts/studs, heads, valvetrain, rockers, pushrods, valve covers.'},
+  {id:'cam', num:'04', name:'Cam & Valley', color:'#e8650a', cat:'engine',
+   desc:'Camshaft, lifters, lifter trays, valley cover / DOD delete, timing chain cover.'},
+  {id:'topend', num:'05', name:'Intake & Top End', color:'#d4930c', cat:'engine',
+   desc:'Intake manifold, throttle body, injectors, fuel rails, MAP/MAF sensors.'},
+  {id:'accessories', num:'06', name:'Accessories & Dress', color:'#d4930c', cat:'engine',
+   desc:'Water pump, alternator, PS pump, belt, tensioner, headers/exhaust manifolds, motor mounts.'},
+  {id:'install', num:'07', name:'Drop In & Dress', color:'#3d9e6a', cat:'final',
+   desc:'Engine install, bellhousing, crossmember, motor mounts, fluids, prime, break-in, tune prep.'},
+  {id:'trans', num:'08', name:'Transmission & Converter', color:'#9a6ce0', cat:'trans',
+   desc:'4L65E rebuild, performance torque converter, shift kit, cooler, fluid. Tracked separately from the engine drop-in.'},
+  {id:'suspension', num:'09', name:'Suspension Rebuild', color:'#4a90d9', cat:'chassis',
+   desc:'Bushings (control arm, IRS cradle, radius rod), shocks/struts, springs, sway bars, ball joints, alignment.'}
+];
+
+const TORQUE_SPECS={
+  shortblock:[
+    {name:'Main cap bolts (inner)',spec:'15 lb-ft + 73°',note:'ARP: torque to spec, not angle — verify'},
+    {name:'Main cap bolts (outer)',spec:'15 lb-ft + 73°',note:'4-bolt mains on LS2'},
+    {name:'Rod bolts (ARP 2000)',spec:'45 lb-ft (lubed)',note:'OEM angle method differs — use ARP spec with moly'},
+    {name:'Rod bolts (OEM)',spec:'15 lb-ft + 75°',note:'OEM single-use bolts — replace'},
+    {name:'Flexplate bolts',spec:'11 lb-ft + 80°',note:'OEM; use new bolts'},
+    {name:'Oil pump to block',spec:'106 in-lb',note:''},
+    {name:'Crank balancer bolt',spec:'37 lb-ft + 140°',note:'New bolt required'},
+    {name:'Cam retainer plate',spec:'18 lb-ft',note:'Blue Loctite recommended'},
+    {name:'Timing chain cover',spec:'18 lb-ft',note:''},
+  ],
+  heads:[
+    {name:'Head bolts (OEM)',spec:'22 lb-ft + 90° + 90°',note:'Single-use TTY — replace each time'},
+    {name:'Head studs (ARP)',spec:'85 lb-ft (lubed)',note:'Use ARP Ultra-Torque lube'},
+    {name:'Rocker arm bolt',spec:'22 lb-ft',note:''},
+    {name:'Valley cover',spec:'106 in-lb',note:''},
+    {name:'Valve cover bolts',spec:'106 in-lb',note:''},
+  ],
+  cam:[
+    {name:'Cam sprocket bolt',spec:'26 lb-ft',note:'Verify against manual; some list 18+'},
+    {name:'Lifter retainer',spec:'89 in-lb',note:''},
+    {name:'Front cover bolts',spec:'18 lb-ft',note:''},
+  ],
+  topend:[
+    {name:'Intake manifold bolts',spec:'44 in-lb then 89 in-lb',note:'Two-stage; use new gasket'},
+    {name:'Throttle body bolts',spec:'89 in-lb',note:''},
+    {name:'Fuel rail bolts',spec:'89 in-lb',note:''},
+  ],
+  accessories:[
+    {name:'Water pump bolts',spec:'11 lb-ft',note:''},
+    {name:'Header / exhaust manifold',spec:'11 lb-ft + 90°',note:'New bolts recommended'},
+    {name:'Alternator bracket',spec:'37 lb-ft',note:''},
+    {name:'Motor mount to block',spec:'37 lb-ft',note:''},
+    {name:'Motor mount to chassis',spec:'70 lb-ft',note:''},
+  ],
+  install:[
+    {name:'Bellhousing bolts',spec:'55 lb-ft',note:''},
+    {name:'Trans crossmember',spec:'26 lb-ft',note:''},
+    {name:'Driveshaft bolts',spec:'15 lb-ft + 90°',note:''},
+    {name:'Motor mount to chassis',spec:'70 lb-ft',note:''},
+  ],
+  trans:[
+    {name:'Converter to flexplate',spec:'44 lb-ft',note:'3 bolts; verify converter fully seated first'},
+    {name:'Trans pan bolts',spec:'97 in-lb',note:'Even pattern; don\'t overtighten'},
+    {name:'Valve body bolts',spec:'97 in-lb',note:'Per shift-kit instructions'},
+    {name:'Trans cooler line fittings',spec:'18 lb-ft',note:'Don\'t cross-thread aluminum'},
+    {name:'Trans drain plug',spec:'44 lb-ft',note:''},
+    {name:'Crossmember to frame',spec:'26 lb-ft',note:''},
+  ],
+  suspension:[
+    {name:'Front lower control arm bolt',spec:'Verify in manual',note:'Torque with suspension at ride height'},
+    {name:'IRS cradle to body',spec:'Verify in manual',note:'Large fasteners — check FRONT/REAR SUSPENSION section'},
+    {name:'Radius rod bolts',spec:'Verify in manual',note:'Torque at ride height'},
+    {name:'Shock/strut mount',spec:'Verify in manual',note:''},
+    {name:'Sway bar bracket',spec:'Verify in manual',note:''},
+    {name:'Ball joint nut',spec:'Verify in manual',note:'Castle nut + cotter pin'},
+    {name:'Tie rod end nut',spec:'Verify in manual',note:''},
+    {name:'Lug nuts',spec:'100 lb-ft',note:'Verify; star pattern'},
+  ]
+};
+
+/* ────────────────────────────────────────
+   SEEDED PARTS per phase
+──────────────────────────────────────── */
+function seedParts(){
+  const s=(phase,name,pn,vendor,qty,cost,cat,status='needed')=>
+    ({id:uid(),phase,name,pn,vendor,qty,cost,cat,status,notes:''});
+  return [
+    // Machine shop
+    s('machine','Bore & hone (30-over)','','Machine shop',1,450,'labor'),
+    s('machine','Crank grind & polish','','Machine shop',1,180,'labor'),
+    s('machine','Head port & polish (pair)','','Machine shop',1,600,'labor'),
+    s('machine','Deck block & heads','','Machine shop',1,200,'labor'),
+    s('machine','Valve job (pair)','','Machine shop',1,280,'labor'),
+    s('machine','Hot tank & clean','','Machine shop',1,120,'labor'),
+    // Short block
+    s('shortblock','Mahle forged pistons 4.030" (set of 8)','930200340','Summit',1,780,'rotating'),
+    s('shortblock','Scat 4340 forged H-beam rods (set of 8)','2-350-6000-2200H','Summit',1,650,'rotating'),
+    s('shortblock','Callies 4340 forged crank','CS6000S6A','Summit',1,1100,'rotating'),
+    s('shortblock','King main bearings (std)','MB5273XPSTDX','Summit',1,95,'bearings'),
+    s('shortblock','King rod bearings (std)','CR807XPSTDX','Summit',1,75,'bearings'),
+    s('shortblock','Total Seal ring set 4.030" (full set)','CL0690-35','Summit',1,180,'rings'),
+    s('shortblock','ARP main stud kit','234-5608','ARP',1,185,'fasteners'),
+    s('shortblock','ARP 2000 rod bolt kit','134-6004','ARP',1,95,'fasteners'),
+    s('shortblock','Melling oil pump','M338HV','RockAuto',1,85,'oiling'),
+    s('shortblock','LS2 timing chain & gears','','GM / Comp',1,95,'timing'),
+    s('shortblock','Front main seal','','Felpro',1,12,'seals'),
+    s('shortblock','Rear main seal','','Felpro',1,18,'seals'),
+    s('shortblock','Oil pan gasket','','Felpro',1,22,'gaskets'),
+    s('shortblock','New crank balancer bolt','','GM OEM',1,15,'fasteners'),
+    s('shortblock','New flexplate bolts (set)','','GM OEM',1,18,'fasteners'),
+    s('shortblock','Assembly lube / Clevite 77','','Clevite',1,14,'consumables'),
+    s('shortblock','ARP thread sealant + lube','','ARP',1,24,'consumables'),
+    // Heads
+    s('heads','AFR 225cc LS2 heads (pair)','1602','AFR',1,2400,'heads'),
+    s('heads','Cometic MLS head gasket set','C5727-040','Cometic',2,160,'gaskets'),
+    s('heads','ARP head stud kit','234-4317','ARP',1,220,'fasteners'),
+    s('heads','Comp pushrods (set of 16)','','Comp Cams',1,85,'valvetrain'),
+    s('heads','Rocker arm bolts (set)','','GM OEM',1,28,'fasteners'),
+    s('heads','Valve cover gaskets','','Felpro',1,28,'gaskets'),
+    // Cam & valley
+    s('cam','Comp Cams Stage 2 LS2 cam','54-469-11','Comp Cams',1,380,'cam'),
+    s('cam','Comp beehive valve springs (set of 16)','','Comp Cams',1,210,'valvetrain'),
+    s('cam','Comp retainers & locks','','Comp Cams',1,75,'valvetrain'),
+    s('cam','Comp hardened pushrods (set of 16)','','Comp Cams',1,95,'valvetrain'),
+    s('cam','DOD delete kit (tray & plugs)','DOD-001','Dorman/LS',1,95,'cam'),
+    s('cam','New lifters (set of 16, non-MDS)','','Comp / GM',1,120,'valvetrain'),
+    s('cam','Cam lube / break-in additive','','Comp Cams',1,18,'consumables'),
+    s('cam','Valley cover gasket','','Felpro',1,22,'gaskets'),
+    // Top end
+    s('topend','LS2 intake manifold (stock or FAST)','','FAST / GM',1,350,'intake'),
+    s('topend','90mm throttle body','','Vararam / Nick Williams',1,285,'intake'),
+    s('topend','Fuel injectors 42lb (set of 8)','','SIEMENS / FIC',1,240,'fuel'),
+    s('topend','Intake manifold gasket set','','Felpro',1,32,'gaskets'),
+    s('topend','MAP sensor (new)','','AC Delco',1,38,'sensors'),
+    s('topend','IAT sensor (new)','','AC Delco',1,22,'sensors'),
+    // Accessories
+    s('accessories','LS2 water pump (new)','','AC Delco',1,95,'cooling'),
+    s('accessories','Long-tube headers 1-7/8"','','Kooks / American Racing',1,1200,'exhaust'),
+    s('accessories','High-flow cats','','Random Tech / Kooks',1,380,'exhaust'),
+    s('accessories','Serpentine belt (new)','','Gates',1,28,'belts'),
+    s('accessories','Tensioner & idler (new)','','Dayco',1,65,'belts'),
+    s('accessories','Thermostat (new)','','AC Delco 160°F',1,18,'cooling'),
+    s('accessories','Coolant hoses (inspect/replace)','','',1,55,'cooling'),
+    s('accessories','Header bolts (ARP kit)','434-1101','ARP',1,65,'fasteners'),
+    // Install & dress-in
+    s('install','Motor mounts (Energy Susp.)','','Energy Susp.',1,85,'mounts'),
+    s('install','Bellhousing bolts (new set)','','ARP / GM',1,35,'fasteners'),
+    s('install','Engine oil — break-in (6 qt)','','',1,36,'fluids'),
+    s('install','Coolant DEX-COOL (2 gal)','','AC Delco',1,32,'fluids'),
+    s('install','HP Tuners credits (2)','','HP Tuners',1,100,'tune'),
+    s('install','Dyno tune','','Local tuner',1,600,'tune'),
+    // Transmission (4L65E + converter)
+    s('trans','4L65E full rebuild','','Trans shop',1,1800,'trans'),
+    s('trans','Performance torque converter','','Yank / Circle D / PI',1,750,'converter'),
+    s('trans','Shift kit / valve body','','TransGo / Sonnax',1,180,'trans'),
+    s('trans','Trans mount (new)','','Energy Susp.',1,45,'mounts'),
+    s('trans','Trans fluid DEXRON-VI (case)','','AC Delco',1,90,'fluids'),
+    s('trans','Trans cooler (upgrade)','','Derale / B&M',1,140,'cooling'),
+    s('trans','Trans cooler lines / fittings','','',1,60,'cooling'),
+    s('trans','Filter & pan gasket kit','','',1,35,'trans'),
+    // Suspension rebuild
+    s('suspension','Front control arm bushings','','Energy Susp. / poly',1,160,'bushings'),
+    s('suspension','Rear IRS cradle bushings','','Pedders / poly',1,220,'bushings'),
+    s('suspension','Radius rod bushings','','Pedders',1,90,'bushings'),
+    s('suspension','Front struts / shocks (pair)','','Bilstein / Pedders',1,420,'damping'),
+    s('suspension','Rear shocks (pair)','','Bilstein / Pedders',1,360,'damping'),
+    s('suspension','Lowering springs (set)','','Pedders / Eibach',1,320,'springs'),
+    s('suspension','Front sway bar + end links','','Pedders / aftermarket',1,280,'swaybar'),
+    s('suspension','Rear sway bar + end links','','Pedders / aftermarket',1,240,'swaybar'),
+    s('suspension','Ball joints (if needed)','','Moog',1,120,'steering'),
+    s('suspension','Tie rod ends','','Moog',1,110,'steering'),
+    s('suspension','Alignment (post-install)','','Shop',1,120,'labor'),
+    s('suspension','Wheel bearings (if replacing)','','Timken',2,95,'bearings'),
+  ];
+}
+
+function seedTasks(){
+  const t=(phase,text,torque)=>({id:uid(),phase,text,torque:torque||'',done:false});
+  return [
+    t('machine','Deliver block, crank, heads to machine shop'),
+    t('machine','Confirm bore size & piston clearance spec'),
+    t('machine','Confirm crank journal sizes & bearing clearances'),
+    t('machine','Confirm head deck height after surfacing'),
+    t('machine','Verify combustion chamber volume (CC heads)'),
+    t('machine','Pick up machined parts + receipt'),
+    t('shortblock','Thoroughly clean all machined parts',''),
+    t('shortblock','Check main bearing clearances with plastigauge'),
+    t('shortblock','Install main studs into block','18 lb-ft into blind holes'),
+    t('shortblock','Install crank with assembly lube on journals',''),
+    t('shortblock','Install main caps & torque','15 lb-ft + 73° (ARP: verify sheet)'),
+    t('shortblock','Check crank end play (<0.008")'),
+    t('shortblock','Install oil pump','106 in-lb'),
+    t('shortblock','Install piston/rod assemblies with ring compressor'),
+    t('shortblock','Torque rod bolts','ARP 2000: 45 lb-ft with moly lube'),
+    t('shortblock','Confirm rod side clearance'),
+    t('shortblock','Install rear main seal'),
+    t('shortblock','Install oil pan','Sealant at corners; gasket bolts 18 lb-ft'),
+    t('shortblock','Install timing set & cam gear'),
+    t('shortblock','Install front cover','18 lb-ft'),
+    t('shortblock','Install crank balancer','37 lb-ft + 140° — new bolt required'),
+    t('heads','Degree cam (if aftermarket)'),
+    t('heads','Install head gaskets (dry — Cometic MLS)'),
+    t('heads','Install heads'),
+    t('heads','Install head studs — hand tight then torque','85 lb-ft with ARP Ultra-Torque lube'),
+    t('heads','Install pushrods (correct length!)'),
+    t('heads','Install rocker arms & prelube','22 lb-ft'),
+    t('heads','Check piston-to-valve clearance'),
+    t('heads','Install valve covers','106 in-lb'),
+    t('cam','Install cam bearing in block (if replaced)'),
+    t('cam','Coat cam lobes with assembly lube'),
+    t('cam','Install camshaft carefully (avoid journal damage)'),
+    t('cam','Install cam retainer plate','18 lb-ft with blue Loctite'),
+    t('cam','Install cam sprocket','26 lb-ft'),
+    t('cam','Install DOD delete kit (tray plugs, lifter trays)'),
+    t('cam','Install lifters (prelube buckets)'),
+    t('cam','Install valley cover','106 in-lb'),
+    t('topend','Install new injector o-rings (lubed)'),
+    t('topend','Install fuel rails & injectors'),
+    t('topend','Install intake manifold gaskets'),
+    t('topend','Install intake manifold','44 in-lb, then 89 in-lb (two stage)'),
+    t('topend','Install throttle body','89 in-lb'),
+    t('topend','Install MAP & IAT sensors'),
+    t('accessories','Install water pump','11 lb-ft'),
+    t('accessories','Install thermostat & housing'),
+    t('accessories','Install headers','11 lb-ft + 90° — new bolts + sealant'),
+    t('accessories','Install alternator & PS pump'),
+    t('accessories','Route & install serpentine belt'),
+    t('accessories','Install motor mounts to block','37 lb-ft'),
+    t('install','Lower engine onto mounts','70 lb-ft chassis side'),
+    t('install','Connect bellhousing','55 lb-ft'),
+    t('install','Install transmission & crossmember','26 lb-ft'),
+    t('install','Connect driveshaft','15 lb-ft + 90°'),
+    t('install','Fill trans with DEXRON-VI'),
+    t('install','Fill with break-in oil (no additives)'),
+    t('install','Fill coolant system & burp'),
+    t('install','Prime oil system before first start'),
+    t('install','Break-in procedure: 2000rpm for 20 min, vary loads'),
+    t('install','Change break-in oil after first heat cycle'),
+    t('install','Book dyno tune'),
+    t('trans','Inspect 4L65E internals / send to shop'),
+    t('trans','Verify converter stall fits cam/build'),
+    t('trans','Install rebuilt valve body / shift kit','97 in-lb valve body bolts'),
+    t('trans','Install new filter & pan gasket','97 in-lb pan bolts'),
+    t('trans','Seat torque converter fully onto pump'),
+    t('trans','Bolt converter to flexplate','44 lb-ft — verify seated first'),
+    t('trans','Install trans cooler & route lines','18 lb-ft fittings'),
+    t('trans','Fill with DEXRON-VI, check level hot'),
+    t('trans','Verify shift quality on first drive'),
+    t('suspension','Remove old bushings (press/torch)'),
+    t('suspension','Install front control arm bushings'),
+    t('suspension','Install IRS cradle bushings'),
+    t('suspension','Install radius rod bushings'),
+    t('suspension','Install springs & shocks/struts'),
+    t('suspension','Install sway bars & end links'),
+    t('suspension','Replace ball joints / tie rods if worn'),
+    t('suspension','Torque suspension at ride height','Verify all specs in manual'),
+    t('suspension','Torque lug nuts','100 lb-ft star pattern'),
+    t('suspension','Get alignment after everything settles'),
+  ];
+}
+
+/* ────────────────────────────────────────
+   DATA STORE
+──────────────────────────────────────── */
+const blank={tasks:[],parts:[],notes:[],budget:{target:0}};
+let db=loadDB();
+function loadDB(){
+  try{const r=JSON.parse(localStorage.getItem(K)); return r?{...blank,...r}:first();}
+  catch(e){return first();}
+}
+function first(){
+  const d=structuredClone(blank);
+  d.tasks=seedTasks(); d.parts=seedParts();
+  return d;
+}
+function save(){localStorage.setItem(K,JSON.stringify(db));}
+
+/* ────────────────────────────────────────
+   STATE
+──────────────────────────────────────── */
+let view='shortblock'; // default phase
+let partFilter='all';
+let partPhaseFilter='all';
+
+/* ────────────────────────────────────────
+   NAV / ROUTING
+──────────────────────────────────────── */
+function switchView(v){
+  view=v;
+  document.querySelectorAll('.phase-btn,.rail-nav-btn').forEach(b=>b.classList.remove('active'));
+  const pb=document.querySelector(`[data-phase="${v}"]`);
+  if(pb) pb.classList.add('active');
+  const nb=document.querySelector(`.rail-nav-btn[data-view="${v}"]`);
+  if(nb) nb.classList.add('active');
+  render();
+}
+function buildRail(){
+  const c=document.getElementById('phase-btns'); c.innerHTML='';
+  PHASES.forEach(ph=>{
+    const tasks=db.tasks.filter(t=>t.phase===ph.id);
+    const done=tasks.filter(t=>t.done).length;
+    const pct=tasks.length?Math.round(done/tasks.length*100):0;
+    const b=document.createElement('button');
+    b.className='phase-btn'+(view===ph.id?' active':'');
+    b.dataset.phase=ph.id;
+    b.innerHTML=`<div class="ph-num">Phase ${ph.num}</div><div class="ph-name">${esc(ph.name)}</div>
+      <div class="ph-bar"><i style="width:${pct}%"></i></div>
+      <div class="ph-pct">${done}/${tasks.length} tasks &middot; ${money(phaseCost(ph.id))}</div>`;
+    b.addEventListener('click',()=>{switchView(ph.id);closeMobile();});
+    c.appendChild(b);
+  });
+}
+function closeMobile(){document.getElementById('phaseRail').classList.remove('mobile-open');}
+
+/* ────────────────────────────────────────
+   BUDGET HELPERS
+──────────────────────────────────────── */
+function phaseCost(phid){return db.parts.filter(p=>p.phase===phid).reduce((a,p)=>a+p.cost*p.qty,0);}
+function totalSpent(){return db.parts.reduce((a,p)=>a+p.cost*p.qty,0);}
+function totalRemain(){return db.parts.filter(p=>p.status!=='installed').reduce((a,p)=>a+p.cost*p.qty,0);}
+function updateTopBar(){
+  const sp=document.getElementById('tb-spent'), re=document.getElementById('tb-remain');
+  if(sp)sp.textContent=money(totalSpent());
+  if(re)re.textContent=money(totalRemain());
+  const mt=document.getElementById('tb-mobile');
+  if(mt)mt.textContent=money(totalSpent());
+}
+
+/* ────────────────────────────────────────
+   RENDER ENGINE
+──────────────────────────────────────── */
+function render(){
+  const main=document.getElementById('main');
+  buildRail(); updateTopBar();
+  const ph=PHASES.find(p=>p.id===view);
+  if(ph) main.innerHTML=renderPhase(ph);
+  else if(view==='budget') main.innerHTML=renderBudget();
+  else if(view==='torque') main.innerHTML=renderTorque();
+  else if(view==='notes') main.innerHTML=renderNotes();
+  else if(view==='allparts') main.innerHTML=renderAllParts();
+  else if(view==='settings') main.innerHTML=renderSettings();
+  bindEvents();
+}
+
+/* ── PHASE VIEW ── */
+function renderPhase(ph){
+  const tasks=db.tasks.filter(t=>t.phase===ph.id);
+  const parts=db.parts.filter(p=>p.phase===ph.id);
+  const done=tasks.filter(t=>t.done).length;
+  const blocked=parts.filter(p=>p.status==='needed'||p.status==='ordered').length;
+  const pCost=phaseCost(ph.id);
+  const specs=TORQUE_SPECS[ph.id]||[];
+  return `
+<div class="sec-tag">Phase ${ph.num}</div>
+<div class="sec-head"><div class="sec-title">${esc(ph.name)}</div>
+  <div><button class="btn ghost sm" data-add-task="${ph.id}">+ Task</button></div></div>
+<p class="sub-txt">${esc(ph.desc)}</p>
+<div class="phase-meta">
+  <div class="pm-tile"><div class="v">${done}/${tasks.length}</div><div class="l">Tasks Done</div></div>
+  <div class="pm-tile"><div class="v" style="color:${blocked?'var(--warn)':'var(--ok)'}">${blocked}</div><div class="l">Parts Pending</div></div>
+  <div class="pm-tile"><div class="v">${money(pCost)}</div><div class="l">Phase Cost</div></div>
+</div>
+${tasks.length?`<h4 style="margin-bottom:10px;font-size:.8rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">Tasks</h4>
+<div class="task-list">${tasks.map(t=>`
+  <div class="task-item${t.done?' done':''}" data-toggle-task="${t.id}">
+    <div class="task-cb">${t.done?'✓':''}</div>
+    <div><div class="task-text">${esc(t.text)}</div>
+    ${t.torque?`<span class="task-torque">🔧 ${esc(t.torque)}</span>`:''}
+    </div>
+    <span class="del-x" data-del-task="${t.id}" style="margin-left:auto">&times;</span>
+  </div>`).join('')}</div>`:'<div class="empty">No tasks for this phase yet.</div>'}
+<div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 10px">
+  <h4 style="font-size:.8rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">Parts / Materials</h4>
+  <button class="btn sm" data-show-part-form="${ph.id}">+ Add Part</button>
+</div>
+<div id="part-form-${ph.id}" style="display:none">
+  <div class="part-form">
+    <div class="pf-row c2">
+      <div><label class="fld">Part / Material</label><input id="pf-name" type="text" placeholder="e.g. ARP head stud kit"></div>
+      <div><label class="fld">Part Number</label><input id="pf-pn" type="text" placeholder="234-4317"></div>
+    </div>
+    <div class="pf-row c4">
+      <div><label class="fld">Vendor</label><input id="pf-vendor" type="text" placeholder="Summit"></div>
+      <div><label class="fld">Qty</label><input id="pf-qty" type="text" inputmode="numeric" value="1"></div>
+      <div><label class="fld">Unit Cost</label><input id="pf-cost" type="text" inputmode="decimal" placeholder="0.00"></div>
+      <div><label class="fld">Status</label><select id="pf-status">
+        <option value="needed">Needed</option><option value="ordered">Ordered</option>
+        <option value="inhand">In Hand</option><option value="installed">Installed</option>
+      </select></div>
+    </div>
+    <div><label class="fld">Category</label><select id="pf-cat">
+      <option value="labor">Labor / Machine</option><option value="rotating">Rotating Assembly</option>
+      <option value="bearings">Bearings</option><option value="rings">Rings</option>
+      <option value="fasteners">Fasteners</option><option value="heads">Heads</option>
+      <option value="valvetrain">Valvetrain</option><option value="cam">Cam</option>
+      <option value="gaskets">Gaskets</option><option value="seals">Seals</option>
+      <option value="oiling">Oiling</option><option value="timing">Timing</option>
+      <option value="intake">Intake</option><option value="fuel">Fuel</option>
+      <option value="exhaust">Exhaust</option><option value="cooling">Cooling</option>
+      <option value="belts">Belts</option><option value="sensors">Sensors</option>
+      <option value="mounts">Mounts</option><option value="trans">Transmission</option>
+      <option value="converter">Torque Converter</option>
+      <option value="bushings">Bushings</option><option value="damping">Shocks/Struts</option>
+      <option value="springs">Springs</option><option value="swaybar">Sway Bars</option>
+      <option value="steering">Steering</option>
+      <option value="fluids">Fluids</option><option value="tune">Tune</option>
+      <option value="consumables">Consumables</option>
+    </select></div>
+    <div><label class="fld">Notes</label><input id="pf-notes" type="text" placeholder="Optional"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" data-save-part="${ph.id}">+ Add</button>
+      <button class="btn ghost" data-hide-part-form="${ph.id}">Cancel</button>
+    </div>
+  </div>
+</div>
+${renderPartsTable(parts,ph.id)}
+${specs.length?`
+<h4 style="margin:20px 0 10px;font-size:.8rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">
+  🔧 Torque Specs — ${esc(ph.name)}</h4>
+<div class="torque-warn">⚠ Always verify against the factory service manual before wrenching. These values are well-established LS2 specs — but confirm ARP kit sheets for stud kits, and use the correct lube (moly vs. oil) as specified.</div>
+<div class="card orange-l">${specs.map(s=>`
+  <div class="torque-row"><div><div>${esc(s.name)}</div>${s.note?`<div class="note">${esc(s.note)}</div>`:''}</div>
+  <div class="spec">${esc(s.spec)}</div></div>`).join('')}</div>`:''}`;
+}
+
+function renderPartsTable(parts,phid){
+  if(!parts.length) return '<div class="empty">No parts logged for this phase. Add one above or the seeded list may have been cleared.</div>';
+  return `<div style="overflow-x:auto"><table class="part-table">
+<thead><tr><th>Part</th><th>Part #</th><th>Vendor</th><th>Qty</th><th>Unit $</th><th>Total</th><th>Status</th><th></th></tr></thead>
+<tbody>${parts.map(p=>`<tr>
+  <td>${esc(p.name)}${p.notes?`<div style="font-size:.7rem;color:var(--muted)">${esc(p.notes)}</div>`:''}</td>
+  <td class="m-pn"><div class="pn-code">${esc(p.pn)||'—'}</div></td>
+  <td class="m-vendor">${esc(p.vendor)||'—'}</td>
+  <td class="m-qty" style="text-align:center">${p.qty}</td>
+  <td class="cost-num m-unit">${p.cost?money(p.cost):'—'}</td>
+  <td class="cost-num m-total">${p.cost?money(p.cost*p.qty):'—'}</td>
+  <td><span class="status-pill s-${p.status}" data-cycle-status="${p.id}">${p.status}</span></td>
+  <td class="m-del"><span class="del-x" data-del-part="${p.id}">&times;</span></td>
+</tr>`).join('')}
+<tr class="total-row"><td colspan="5" style="text-align:right;font-size:.75rem;color:var(--muted);padding-top:8px">Phase total</td>
+  <td class="cost-num" style="color:var(--orange-hi);font-weight:700">${money(parts.reduce((a,p)=>a+p.cost*p.qty,0))}</td>
+  <td colspan="2"></td></tr>
+</tbody></table></div>`;
+}
+
+/* ── BUDGET VIEW ── */
+function renderBudget(){
+  const cats={};
+  db.parts.forEach(p=>{cats[p.cat]=(cats[p.cat]||0)+p.cost*p.qty;});
+  const total=totalSpent(), remain=totalRemain();
+  const tgt=db.budget.target||0;
+  const phaseTotals=PHASES.map(ph=>({ph,cost:phaseCost(ph.id)}));
+  const maxPh=Math.max(...phaseTotals.map(p=>p.cost),1);
+  return `
+<div class="sec-tag">Financial</div>
+<div class="sec-head"><div class="sec-title">Budget Overview</div></div>
+<div class="bud-grid">
+  <div class="bud-tile"><div class="tv">${money(total)}</div><div class="tl">Total Parts Value</div></div>
+  <div class="bud-tile"><div class="tv" style="color:var(--warn)">${money(remain)}</div><div class="tl">Still to Spend</div></div>
+  <div class="bud-tile"><div class="tv" style="color:var(--ok)">${money(total-remain)}</div><div class="tl">In Hand / Installed</div></div>
+  <div class="bud-tile"><div class="tv">${db.parts.filter(p=>p.status==='needed').length}</div><div class="tl">Parts Still Needed</div></div>
+  <div class="bud-tile"><div class="tv" style="color:var(--info)">${db.parts.filter(p=>p.status==='ordered').length}</div><div class="tl">On Order</div></div>
+  <div class="bud-tile"><div class="tv" style="color:var(--ok)">${db.parts.filter(p=>p.status==='installed').length}</div><div class="tl">Installed</div></div>
+</div>
+<div style="margin-bottom:8px">
+  <label class="fld">Build budget target (optional)</label>
+  <div style="display:flex;gap:8px;max-width:280px">
+    <input id="bud-target" type="text" inputmode="decimal" value="${db.budget.target||''}" placeholder="e.g. 15000">
+    <button class="btn sm" id="bud-save">Set</button>
+  </div>
+  ${tgt?`<div style="font-size:.78rem;color:${total>tgt?'var(--bad)':'var(--ok)'};margin-top:6px">${total>tgt?'⚠ Over budget by '+money(total-tgt):'✓ Under budget by '+money(tgt-total)}</div>`:''}
+</div>
+<h4 style="margin:20px 0 10px;font-size:.8rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">Cost by Phase</h4>
+<div class="bud-bar-wrap">
+${phaseTotals.map(({ph,cost})=>`<div class="bud-phase-row">
+  <div class="pn">Ph ${ph.num} ${ph.name}</div>
+  <div class="bar"><i style="width:${Math.round(cost/maxPh*100)}%;background:${ph.color}"></i></div>
+  <div class="amt">${money(cost)}</div>
+</div>`).join('')}
+</div>
+<h4 style="margin:20px 0 10px;font-size:.8rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">Cost by Category</h4>
+<div class="bud-bar-wrap">
+${Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([cat,amt])=>`<div class="bud-phase-row">
+  <div class="pn">${esc(cat)}</div>
+  <div class="bar"><i style="width:${Math.round(amt/total*100)}%;background:var(--orange)"></i></div>
+  <div class="amt">${money(amt)}</div>
+</div>`).join('')}
+</div>`;
+}
+
+/* ── TORQUE VIEW ── */
+function renderTorque(){
+  return `
+<div class="sec-tag">Reference</div>
+<div class="sec-head"><div class="sec-title">LS2 Torque Specs</div></div>
+<div class="torque-warn">⚠ Verify all values against the GM factory service manual and any aftermarket kit instruction sheet (ARP, Cometic, etc.) before assembly. Lube type matters: moly vs. oil vs. dry changes the actual clamp load. When in doubt, kit instructions beat this list.</div>
+<div class="torque-grid">
+${Object.entries(TORQUE_SPECS).map(([sec,specs])=>{
+  const ph=PHASES.find(p=>p.id===sec);
+  return `<div class="torque-section">
+    <h4>${ph?ph.name:sec}</h4>
+    ${specs.map(s=>`<div class="torque-row">
+      <div><div>${esc(s.name)}</div>${s.note?`<div class="note">${esc(s.note)}</div>`:''}</div>
+      <div class="spec">${esc(s.spec)}</div></div>`).join('')}
+  </div>`;}).join('')}
+</div>`;
+}
+
+/* ── NOTES VIEW ── */
+function renderNotes(){
+  const phases=[{id:'all',name:'All Phases'},...PHASES.map(p=>({id:p.id,name:p.name}))];
+  const sorted=[...db.notes].sort((a,b)=>b.date.localeCompare(a.date));
+  return `
+<div class="sec-tag">Log</div>
+<div class="sec-head"><div class="sec-title">Build Notes</div></div>
+<div class="part-form" style="margin-bottom:20px">
+  <div class="pf-row c2">
+    <div><label class="fld">Phase</label><select id="note-phase">
+      ${PHASES.map(p=>`<option value="${p.id}">${p.num} — ${p.name}</option>`).join('')}
+    </select></div>
+    <div><label class="fld">Date</label><input id="note-date" type="date" value="${today()}"></div>
+  </div>
+  <div><label class="fld">Note / observation</label>
+    <textarea id="note-text" rows="3" placeholder="e.g. Machine shop called — #3 cylinder needs sleeve. Adding $200 to machine phase."></textarea></div>
+  <button class="btn" id="note-add">+ Log Note</button>
+</div>
+${sorted.length?sorted.map(n=>{const ph=PHASES.find(p=>p.id===n.phase);return `
+  <div class="note-item">
+    <div class="note-meta">
+      <span class="note-date">${esc(n.date)}</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="note-phase">${ph?ph.name:n.phase}</span>
+        <span class="del-x" data-del-note="${n.id}">&times;</span>
+      </div>
+    </div>
+    <div class="note-text">${esc(n.text)}</div>
+  </div>`;}).join(''):'<div class="empty">No notes yet. Log things as they come up — machine shop calls, measurements, surprises.</div>'}`;
+}
+
+/* ── ALL PARTS VIEW ── */
+function renderAllParts(){
+  const statuses=['all','needed','ordered','inhand','installed'];
+  let parts=[...db.parts];
+  if(partFilter!=='all') parts=parts.filter(p=>p.status===partFilter);
+  if(partPhaseFilter!=='all') parts=parts.filter(p=>p.phase===partPhaseFilter);
+  parts.sort((a,b)=>{const o={needed:0,ordered:1,inhand:2,installed:3};return o[a.status]-o[b.status];});
+  const needed=db.parts.filter(p=>p.status==='needed').reduce((a,p)=>a+p.cost*p.qty,0);
+  const ordered=db.parts.filter(p=>p.status==='ordered').reduce((a,p)=>a+p.cost*p.qty,0);
+  return `
+<div class="sec-tag">Master List</div>
+<div class="sec-head"><div class="sec-title">All Parts</div></div>
+<div class="bud-grid" style="margin-bottom:16px">
+  <div class="bud-tile"><div class="tv" style="color:#e06060">${money(needed)}</div><div class="tl">Still to Source</div></div>
+  <div class="bud-tile"><div class="tv" style="color:var(--info)">${money(ordered)}</div><div class="tl">On Order</div></div>
+  <div class="bud-tile"><div class="tv">${money(totalSpent())}</div><div class="tl">Total Build</div></div>
+</div>
+<div class="part-filters">
+  ${statuses.map(s=>`<button class="pf-btn${partFilter===s?' active':''}" data-status-filter="${s}">${s==='all'?'All':s}</button>`).join('')}
+  <span style="margin:0 4px;color:var(--muted)">|</span>
+  <button class="pf-btn${partPhaseFilter==='all'?' active':''}" data-phase-filter="all">All phases</button>
+  ${PHASES.map(p=>`<button class="pf-btn${partPhaseFilter===p.id?' active':''}" data-phase-filter="${p.id}">Ph ${p.num}</button>`).join('')}
+</div>
+${renderPartsTable(parts,'_all')}`;
+}
+
+/* ── SETTINGS ── */
+function renderSettings(){
+  return `
+<div class="sec-tag">Data</div>
+<div class="sec-head"><div class="sec-title">Export / Import / Reset</div></div>
+<div class="card" style="margin-bottom:12px">
+  <p class="sub-txt">All build data is saved on this device only. Use Export to create a backup JSON file, Import to restore it on another device, and Reset to start fresh.</p>
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <button class="btn" id="exp2">Export Backup</button>
+    <button class="btn ghost" id="imp2">Import Backup</button>
+    <button class="btn danger" id="wipe2">Reset All Data</button>
+  </div>
+</div>
+<div class="card orange-l">
+  <div style="font-size:.8rem;color:var(--muted);margin-bottom:8px">Build summary</div>
+  <div style="font-size:.88rem;line-height:1.8">
+    Tasks: ${db.tasks.filter(t=>t.done).length} / ${db.tasks.length} complete<br>
+    Parts: ${db.parts.length} items &middot; ${db.parts.filter(p=>p.status==='installed').length} installed<br>
+    Notes: ${db.notes.length} logged<br>
+    Total build cost: ${money(totalSpent())}
+  </div>
+</div>`;
+}
+
+/* ────────────────────────────────────────
+   EVENT BINDING
+──────────────────────────────────────── */
+function bindEvents(){
+  // task toggle
+  document.querySelectorAll('[data-toggle-task]').forEach(el=>{
+    el.addEventListener('click',e=>{
+      if(e.target.closest('[data-del-task]'))return;
+      const t=db.tasks.find(x=>x.id===el.dataset.toggleTask);
+      if(t){t.done=!t.done;save();render();}
+    });
+  });
+  // del task
+  document.querySelectorAll('[data-del-task]').forEach(el=>{
+    el.addEventListener('click',e=>{e.stopPropagation();
+      db.tasks=db.tasks.filter(x=>x.id!==el.dataset.delTask);save();render();});
+  });
+  // add task
+  document.querySelectorAll('[data-add-task]').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const text=prompt('New task for '+el.dataset.addTask+':');
+      if(!text?.trim())return;
+      const torque=prompt('Torque spec (leave blank if N/A):');
+      db.tasks.push({id:uid(),phase:el.dataset.addTask,text:text.trim(),torque:torque?.trim()||'',done:false});
+      save();render();
+    });
+  });
+  // show/hide part form
+  document.querySelectorAll('[data-show-part-form]').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const f=document.getElementById('part-form-'+el.dataset.showPartForm);
+      if(f)f.style.display='block';
+    });
+  });
+  document.querySelectorAll('[data-hide-part-form]').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const f=document.getElementById('part-form-'+el.dataset.hidePartForm);
+      if(f)f.style.display='none';
+    });
+  });
+  // save part
+  document.querySelectorAll('[data-save-part]').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const name=document.getElementById('pf-name')?.value.trim();
+      if(!name){document.getElementById('pf-name')?.focus();return;}
+      db.parts.push({id:uid(),phase:el.dataset.savePart,
+        name,pn:document.getElementById('pf-pn')?.value.trim()||'',
+        vendor:document.getElementById('pf-vendor')?.value.trim()||'',
+        qty:parseInt(document.getElementById('pf-qty')?.value)||1,
+        cost:num(document.getElementById('pf-cost')?.value),
+        status:document.getElementById('pf-status')?.value||'needed',
+        cat:document.getElementById('pf-cat')?.value||'other',
+        notes:document.getElementById('pf-notes')?.value.trim()||''});
+      save();render();
+    });
+  });
+  // cycle status
+  document.querySelectorAll('[data-cycle-status]').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const order=['needed','ordered','inhand','installed'];
+      const p=db.parts.find(x=>x.id===el.dataset.cycleStatus);
+      if(p){p.status=order[(order.indexOf(p.status)+1)%order.length];save();render();}
+    });
+  });
+  // del part
+  document.querySelectorAll('[data-del-part]').forEach(el=>{
+    el.addEventListener('click',()=>{
+      if(!confirm('Remove this part?'))return;
+      db.parts=db.parts.filter(x=>x.id!==el.dataset.delPart);save();render();
+    });
+  });
+  // notes
+  const noteAdd=document.getElementById('note-add');
+  if(noteAdd) noteAdd.addEventListener('click',()=>{
+    const text=document.getElementById('note-text')?.value.trim();
+    if(!text)return;
+    db.notes.push({id:uid(),phase:document.getElementById('note-phase')?.value,
+      date:document.getElementById('note-date')?.value||today(),text});
+    document.getElementById('note-text').value='';
+    save();render();
+  });
+  document.querySelectorAll('[data-del-note]').forEach(el=>{
+    el.addEventListener('click',()=>{db.notes=db.notes.filter(x=>x.id!==el.dataset.delNote);save();render();});
+  });
+  // part filters
+  document.querySelectorAll('[data-status-filter]').forEach(el=>{
+    el.addEventListener('click',()=>{partFilter=el.dataset.statusFilter;render();});
+  });
+  document.querySelectorAll('[data-phase-filter]').forEach(el=>{
+    el.addEventListener('click',()=>{partPhaseFilter=el.dataset.phaseFilter;render();});
+  });
+  // budget
+  const budSave=document.getElementById('bud-save');
+  if(budSave) budSave.addEventListener('click',()=>{
+    db.budget.target=num(document.getElementById('bud-target')?.value);save();render();
+  });
+  // rail nav
+  document.querySelectorAll('.rail-nav-btn[data-view]').forEach(b=>{
+    b.addEventListener('click',()=>{switchView(b.dataset.view);closeMobile();});
+  });
+  // data
+  ['exp','exp2'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('click',doExport);});
+  ['imp','imp2'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('click',()=>document.getElementById('impFile').click());});
+  ['wipe','wipe2'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('click',doWipe);});
+}
+
+function doExport(){
+  const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ls2-build-backup.json';a.click();
+}
+function doWipe(){
+  if(confirm('Reset all build data? This cannot be undone.')){db=first();save();render();}
+}
+document.getElementById('impFile').addEventListener('change',e=>{
+  const f=e.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{try{db={...blank,...JSON.parse(r.result)};save();render();}
+    catch(err){alert('Could not read that backup file.');}};r.readAsText(f);e.target.value='';
+});
+document.getElementById('menuBtn').addEventListener('click',()=>{
+  document.getElementById('phaseRail').classList.toggle('mobile-open');
+});
+// phase rail clicks (built dynamically, delegate)
+document.getElementById('phaseRail').addEventListener('click',e=>{
+  const b=e.target.closest('.phase-btn'); if(!b)return;
+  switchView(b.dataset.phase); closeMobile();
+});
+
+render();
+</script>
+</body>
+</html>
