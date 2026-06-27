@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LS2 Build Tracker - Gemini Edition v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* GTO Midnight & Red Theme */
+  --bg: #090a0f; --surface: #13151f; --raised: #1d202f; --inset: #050608;
+  --primary: #e62e2e; --primary-hi: #ff4d4d; --primary-dim: #5c1212; --primary-soft: #2b0b0b;
+  --chrome: #e5e7eb; --chrome-dim: #9ca3af; --text: #f3f4f6; --muted: #6b7280; --faint: #374151;
+  --border: #272a38; --border-hi: #3f4459;
+  --ok: #10b981; --warn: #f59e0b; --bad: #ef4444; --info: #3b82f6;
+  --phase-w: 260px; --radius: 8px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+
+/* ─── LAYOUT ─── */
+.app { display: flex; flex-direction: column; min-height: 100vh; }
+.topbar {
+  display: flex; align-items: center; gap: 16px; padding: 14px 24px;
+  background: rgba(19, 21, 31, 0.75); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 50; box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.topbar .logo { font-family: 'Fira Code', monospace; font-size: .75rem; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--primary); background: var(--primary-soft); padding: 4px 8px; border-radius: 4px; }
+.topbar .title { font-size: 1.1rem; font-weight: 600; color: var(--text); letter-spacing: -0.3px;}
+.topbar .sub { font-family: 'Fira Code', monospace; font-size: .7rem; color: var(--chrome-dim); letter-spacing: 1px; text-transform: uppercase; margin-left: auto; }
+.topbar .budget-pill { font-family: 'Fira Code', monospace; font-size: .8rem; background: var(--inset); border: 1px solid var(--border-hi); border-radius: 24px; padding: 6px 16px; color: var(--chrome); box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); }
+.topbar .budget-pill span { color: var(--primary-hi); font-weight: 700; }
+
+.body { display: flex; flex: 1; }
+
+/* ─── PHASE RAIL ─── */
+.phase-rail { width: var(--phase-w); background: var(--surface); border-right: 1px solid var(--border); padding: 24px 12px; position: sticky; top: 57px; height: calc(100vh - 57px); overflow-y: auto; flex-shrink: 0; }
+.rail-head { font-family: 'Fira Code', monospace; font-size: .65rem; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); padding: 0 12px 16px; }
+.phase-btn { width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 12px; position: relative; transition: all .2s cubic-bezier(0.4, 0, 0.2, 1); border-radius: var(--radius); margin-bottom: 4px; }
+.phase-btn:hover { background: var(--raised); transform: translateX(2px); }
+.phase-btn.active { background: var(--raised); box-shadow: inset 3px 0 0 var(--primary); }
+.phase-btn .ph-num { font-family: 'Fira Code', monospace; font-size: .65rem; color: var(--muted); margin-bottom: 4px; }
+.phase-btn .ph-name { font-size: .9rem; font-weight: 600; color: var(--chrome); }
+.phase-btn.active .ph-name { color: var(--primary-hi); }
+.phase-btn .ph-bar { height: 4px; background: var(--inset); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+.phase-btn .ph-bar i { display: block; height: 100%; border-radius: 2px; background: var(--primary); transition: width .4s ease; }
+.phase-btn .ph-pct { font-family: 'Fira Code', monospace; font-size: .65rem; color: var(--chrome-dim); margin-top: 5px; }
+.rail-sep { height: 1px; background: var(--border); margin: 16px 12px; }
+.rail-nav-btn { width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 10px 12px; font-family: 'Inter', sans-serif; font-size: .85rem; font-weight: 500; color: var(--muted); transition: all .15s; border-radius: var(--radius); margin-bottom: 4px; }
+.rail-nav-btn:hover { color: var(--text); background: var(--raised); }
+.rail-nav-btn.active { color: var(--primary-hi); background: var(--primary-soft); }
+
+/* ─── MAIN CONTENT & MODALS ─── */
+.main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: calc(100vh - 57px); }
+.sec-head { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.sec-title { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.5px; }
+.sec-tag { font-family: 'Fira Code', monospace; font-size: .7rem; letter-spacing: 2px; text-transform: uppercase; color: var(--primary); margin-bottom: 4px; }
+
+/* Modal */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); z-index: 100; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+.modal-backdrop.open { opacity: 1; pointer-events: auto; }
+.modal-box { background: var(--surface); border: 1px solid var(--border-hi); border-radius: var(--radius); width: 90%; max-width: 500px; padding: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); transform: translateY(20px); transition: transform 0.2s; }
+.modal-backdrop.open .modal-box { transform: translateY(0); }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+.modal-title { font-size: 1.2rem; font-weight: 700; color: var(--text); }
+.modal-close { background: none; border: none; color: var(--muted); font-size: 1.5rem; cursor: pointer; transition: color 0.15s; }
+.modal-close:hover { color: var(--primary-hi); }
+
+/* ─── CARDS, TILES, BUDGET ─── */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+.card.primary-l { border-left: 4px solid var(--primary); }
+.bud-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.bud-tile { background: linear-gradient(145deg, var(--surface) 0%, var(--inset) 100%); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; text-align: center; position: relative; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+.bud-tile::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--primary); opacity: .8; }
+.bud-tile .tv { font-family: 'Fira Code', monospace; font-size: 1.4rem; font-weight: 700; color: var(--primary-hi); }
+.bud-tile .tl { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-top: 6px; }
+.bud-bar-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 24px; }
+.bud-phase-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; font-size: .85rem; }
+.bud-phase-row:last-child { margin-bottom: 0; }
+.bud-phase-row .pn { width: 180px; flex-shrink: 0; color: var(--chrome-dim); font-family: 'Fira Code', monospace; font-size: .75rem; }
+.bud-phase-row .bar { flex: 1; height: 6px; background: var(--inset); border-radius: 3px; overflow: hidden; }
+.bud-phase-row .bar i { display: block; height: 100%; border-radius: 3px; background: var(--primary); box-shadow: 0 0 8px var(--primary-hi); }
+.bud-phase-row .amt { width: 90px; text-align: right; font-family: 'Fira Code', monospace; font-size: .8rem; color: var(--chrome); font-weight: 600;}
+.phase-meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+.pm-tile { background: var(--inset); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; text-align: center; }
+.pm-tile .v { font-family: 'Fira Code', monospace; font-size: 1.2rem; font-weight: 700; color: var(--primary-hi); }
+.pm-tile .l { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-top: 4px; }
+
+/* ─── TASKS & SEARCH ─── */
+.task-controls { display: flex; gap: 16px; align-items: center; background: var(--surface); padding: 12px 16px; border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 16px; }
+.task-list { display: grid; gap: 8px; margin-bottom: 32px; }
+.task-item { display: flex; align-items: flex-start; gap: 14px; background: var(--raised); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; cursor: pointer; transition: all .15s; }
+.task-item:hover { background: var(--surface); border-color: var(--border-hi); transform: translateY(-1px); }
+.task-item.done { opacity: .6; background: var(--inset); }
+.task-item.done .task-text { text-decoration: line-through; color: var(--muted); }
+.task-cb { width: 20px; height: 20px; border: 2px solid var(--muted); border-radius: 4px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; margin-top: 2px; transition: all .2s; }
+.task-item:hover .task-cb { border-color: var(--primary-hi); }
+.task-item.done .task-cb { background: var(--ok); border-color: var(--ok); color: #000; font-weight: bold; }
+.task-text { font-size: .95rem; line-height: 1.4; font-weight: 500; }
+.task-torque { font-family: 'Fira Code', monospace; font-size: .7rem; color: var(--primary); margin-top: 6px; display: inline-block; background: var(--primary-soft); padding: 2px 8px; border-radius: 4px; transition: all 0.2s; border: 1px solid transparent; }
+.task-torque.interactive:hover { background: var(--primary); color: #fff; border-color: var(--primary-hi); transform: scale(1.02); }
+
+/* ─── PARTS TABLE & BADGES ─── */
+.part-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.pf-btn { font-size: .75rem; padding: 6px 14px; border: 1px solid var(--border-hi); border-radius: 20px; background: var(--surface); color: var(--chrome-dim); cursor: pointer; font-family: 'Inter', sans-serif; transition: all .15s; font-weight: 500; }
+.pf-btn:hover { border-color: var(--primary-dim); color: var(--text); }
+.pf-btn.active { border-color: var(--primary); color: var(--primary-hi); background: var(--primary-soft); }
+.part-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .85rem; }
+.part-table th { padding: 12px; text-align: left; border-bottom: 2px solid var(--border); font-family: 'Fira Code', monospace; font-size: .7rem; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
+.part-table td { padding: 14px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; background: var(--surface); }
+.part-table tr:hover td { background: var(--raised); }
+.part-table tr:first-child td:first-child { border-top-left-radius: var(--radius); }
+.part-table tr:first-child td:last-child { border-top-right-radius: var(--radius); }
+.part-table tr:last-child td:first-child { border-bottom-left-radius: var(--radius); border-bottom: none; }
+.part-table tr:last-child td:last-child { border-bottom-right-radius: var(--radius); border-bottom: none; }
+.part-table tr:last-child td { border-bottom: none; }
+.status-pill { display: inline-block; font-family: 'Fira Code', monospace; font-size: .65rem; font-weight: 700; padding: 4px 10px; border-radius: 12px; text-transform: uppercase; letter-spacing: .5px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: transform 0.1s; }
+.status-pill:active { transform: scale(0.95); }
+.s-needed { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.4); }
+.s-ordered { background: rgba(59, 130, 246, 0.15); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.4); }
+.s-inhand { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.4); }
+.s-installed { background: var(--inset); color: var(--muted); border: 1px solid var(--border-hi); }
+.pn-code { font-family: 'Fira Code', monospace; font-size: .75rem; color: var(--chrome-dim); background: var(--inset); padding: 2px 6px; border-radius: 4px; }
+.cost-num { font-family: 'Fira Code', monospace; font-size: .85rem; text-align: right; font-weight: 500; }
+.del-x { color: var(--muted); cursor: pointer; font-weight: 700; padding: 4px 8px; border-radius: 4px; font-size: 1rem; transition: all 0.15s; }
+.del-x:hover { color: var(--bad); background: rgba(239, 68, 68, 0.1); }
+
+/* ─── FORMS & INPUTS ─── */
+.part-form { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 24px; display: grid; gap: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+.pf-row { display: grid; gap: 12px; }
+@media(min-width: 600px){ .pf-row.c2 { grid-template-columns: 1fr 1fr; } .pf-row.c3 { grid-template-columns: 1fr 1fr 1fr; } .pf-row.c4 { grid-template-columns: 2fr 1fr 1fr 1fr; } }
+.fld { font-family: 'Fira Code', monospace; font-size: .65rem; text-transform: uppercase; letter-spacing: 1px; color: var(--chrome-dim); margin-bottom: 6px; display: block; }
+input, select, textarea { padding: 10px 14px; background: var(--inset); border: 1px solid var(--border-hi); color: var(--text); border-radius: 6px; font-size: .9rem; font-family: 'Inter', sans-serif; width: 100%; transition: border-color 0.2s; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-soft); }
+select option { background: var(--raised); }
+input[type="checkbox"] { width: auto; accent-color: var(--primary); transform: scale(1.2); }
+
+/* ─── BUTTONS ─── */
+.btn { padding: 10px 20px; background: var(--primary); color: #fff; border: none; border-radius: 6px; font-family: 'Inter', sans-serif; font-weight: 700; text-transform: uppercase; cursor: pointer; letter-spacing: .5px; font-size: .8rem; transition: all .15s ease; box-shadow: 0 2px 8px rgba(230, 46, 46, 0.3); }
+.btn:hover { background: var(--primary-hi); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(230, 46, 46, 0.4); }
+.btn:active { transform: translateY(1px); box-shadow: none; }
+.btn.ghost { background: transparent; color: var(--primary-hi); border: 1px solid var(--primary-dim); box-shadow: none; }
+.btn.ghost:hover { background: var(--primary-soft); border-color: var(--primary); }
+.btn.sm { padding: 6px 14px; font-size: .75rem; }
+.btn.danger { background: var(--bad); box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3); }
+.btn.danger:hover { background: #f87171; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4); }
+
+/* ─── TORQUE / NOTES / MISC ─── */
+.torque-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.torque-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+.torque-section h4 { font-family: 'Fira Code', monospace; font-size: .75rem; letter-spacing: 2px; text-transform: uppercase; color: var(--primary-hi); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.torque-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--inset); font-size: .9rem; }
+.torque-row:last-child { border-bottom: none; }
+.torque-row .spec { font-family: 'Fira Code', monospace; font-weight: 700; color: var(--chrome); text-align: right; }
+.torque-row .note { font-size: .75rem; color: var(--muted); margin-top: 4px; }
+.torque-warn { background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-left: 4px solid var(--warn); border-radius: 4px; padding: 12px 16px; font-size: .85rem; line-height: 1.5; margin-bottom: 20px; color: #fcd34d; }
+
+.note-item { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--primary-dim); border-radius: 4px var(--radius) var(--radius) 4px; padding: 16px; margin-bottom: 12px; }
+.note-meta { display: flex; justify-content: space-between; margin-bottom: 8px; }
+.note-date { font-family: 'Fira Code', monospace; font-size: .7rem; color: var(--muted); }
+.note-phase { font-family: 'Fira Code', monospace; font-size: .65rem; color: var(--primary-hi); background: var(--primary-soft); padding: 2px 8px; border-radius: 12px; }
+.note-text { font-size: .95rem; line-height: 1.6; color: var(--text); }
+.empty { color: var(--muted); font-size: .9rem; padding: 32px; text-align: center; background: var(--inset); border-radius: var(--radius); border: 1px dashed var(--border-hi); }
+.sub-txt { font-size: .9rem; color: var(--chrome-dim); line-height: 1.6; margin-bottom: 20px; }
+
+/* ─── MOBILE RESPONSIVE ─── */
+@media(max-width: 768px) {
+  .phase-rail { display: none; }
+  .phase-rail.mobile-open { display: block; position: fixed; inset: 0; z-index: 60; width: 100%; background: rgba(9,10,15,0.95); backdrop-filter: blur(10px); }
+  .topbar .menu-btn { display: flex; }
+  .main { padding: 20px 16px; }
+  .topbar { gap: 12px; padding: 12px 16px; }
+  .topbar .title { font-size: 1rem; line-height: 1.2; }
+  .topbar .sub, .topbar .budget-pill, .topbar .logo { display: none; }
+  .topbar .mobile-total { display: block; margin-left: auto; font-family: 'Fira Code', monospace; font-size: .85rem; color: var(--primary-hi); font-weight: 700; white-space: nowrap; }
+  .part-table thead { display: none; }
+  .part-table, .part-table tbody, .part-table tr, .part-table td { display: block; width: 100%; }
+  .part-table tr { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; padding: 12px 16px; position: relative; }
+  .part-table td { border: none; padding: 4px 0; text-align: left !important; background: transparent; }
+  .part-table tr:hover td { background: transparent; }
+  .part-table td:first-child { font-weight: 600; font-size: 1rem; padding-right: 30px; margin-bottom: 6px; }
+  .part-table td.m-pn::before { content: "Part # "; color: var(--muted); font-family: 'Fira Code', monospace; font-size: .7rem; }
+  .part-table td.m-vendor::before { content: "Vendor: "; color: var(--muted); font-size: .75rem; }
+  .part-table td.m-qty::before { content: "Qty: "; color: var(--muted); font-size: .75rem; }
+  .part-table td.m-unit::before { content: "Unit: "; color: var(--muted); font-size: .75rem; }
+  .part-table td.m-total::before { content: "Total: "; color: var(--muted); font-size: .75rem; }
+  .part-table td.cost-num, .part-table td.m-qty { text-align: left !important; display: inline-block; width: auto; margin-right: 16px; }
+  .part-table td.m-del { position: absolute; top: 12px; right: 12px; width: auto; padding: 0; }
+  .part-table tr.total-row { background: var(--inset); }
+  .part-table tr.total-row td { display: inline-block; width: auto; }
+  .pf-row.c2, .pf-row.c3, .pf-row.c4 { grid-template-columns: 1fr !important; }
+  .bud-grid { grid-template-columns: 1fr 1fr; }
+  .bud-phase-row { flex-wrap: wrap; }
+  .bud-phase-row .pn { width: 100%; margin-bottom: 4px; }
+  .task-controls { flex-direction: column; align-items: stretch; }
+}
+@media(min-width: 769px) { .menu-btn { display: none !important; } .topbar .mobile-total { display: none; } }
+.menu-btn { background: var(--surface); border: 1px solid var(--border-hi); color: var(--text); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: .85rem; font-family: 'Inter', sans-serif; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="app">
+
+<div class="topbar">
+  <button class="menu-btn" id="menuBtn">☰</button>
+  <div class="logo">LS2 // BUILD</div>
+  <div class="title">Brandon's 2006 GTO SAP — LS2 Engine & Trans Rebuild</div>
+  <div class="sub">NA Street/Strip · 6.0L</div>
+  <button class="btn sm ghost" id="btn-toolkit" style="margin-left:auto; margin-right: 16px;">🧮 Toolkit</button>
+  <div class="budget-pill">Spent: <span id="tb-spent">$0</span> &nbsp;|&nbsp; Remaining: <span id="tb-remain">$0</span></div>
+  <div class="mobile-total" id="tb-mobile">$0</div>
+</div>
+
+<div class="body">
+<div class="phase-rail" id="phaseRail">
+  <div class="rail-head">Build Phases</div>
+  <div id="phase-btns"></div>
+  <div class="rail-sep"></div>
+  <button class="rail-nav-btn" data-view="budget">💰 Budget Dashboard</button>
+  <button class="rail-nav-btn" data-view="torque">🔧 Torque Specs</button>
+  <button class="rail-nav-btn" data-view="notes">📋 Build Log & Notes</button>
+  <button class="rail-nav-btn" data-view="allparts">📦 Master Parts List</button>
+  <div class="rail-sep"></div>
+  <button class="rail-nav-btn" data-view="settings">⚙ Data & Backups</button>
+</div>
+
+<div class="main" id="main">
+  </div>
+</div>
+
+<div id="global-modal" class="modal-backdrop">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 class="modal-title" id="modal-title">Reference</h3>
+      <button class="modal-close" id="modal-close">&times;</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<div class="foot">Data saved locally. &nbsp;|&nbsp; <a id="exp">Export</a> &middot; <a id="imp">Import</a> &middot; <a id="wipe">Reset</a>
+<input type="file" id="impFile" accept="application/json" style="display:none"></div>
+</div>
+
+<script>
+const K='ls2build.gemini.v2';
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const today=()=>new Date().toISOString().slice(0,10);
+const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const num=s=>{const n=parseFloat(String(s).replace(/[^0-9.]/g,''));return isNaN(n)?0:n;};
+const money=n=>n===0?'—':'$'+(Math.round(n*100)/100).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0});
+
+/* ────────────────────────────────────────
+   PHASE + TORQUE KNOWLEDGE BASE
+──────────────────────────────────────── */
+const PHASES=[
+  {id:'machine', num:'01', name:'Machine Shop', color:'#3b82f6', cat:'prep', desc:'Boring, honing, crank grinding, head work, deck surfacing.'},
+  {id:'shortblock', num:'02', name:'Short Block', color:'#e62e2e', cat:'engine', desc:'Main bearings, crank, pistons & rings, connecting rods, timing set, front cover, oil pump.'},
+  {id:'heads', num:'03', name:'Heads & Valvetrain', color:'#e62e2e', cat:'engine', desc:'Head gaskets, head bolts/studs, heads, valvetrain, rockers, pushrods, valve covers.'},
+  {id:'cam', num:'04', name:'Cam & Valley', color:'#e62e2e', cat:'engine', desc:'Camshaft, lifters, lifter trays, valley cover / DOD delete, timing chain cover.'},
+  {id:'topend', num:'05', name:'Intake & Top End', color:'#f59e0b', cat:'engine', desc:'Intake manifold, throttle body, injectors, fuel rails, MAP/MAF sensors.'},
+  {id:'accessories', num:'06', name:'Accessories & Dress', color:'#f59e0b', cat:'engine', desc:'Water pump, alternator, PS pump, belt, tensioner, headers/exhaust manifolds, motor mounts.'},
+  {id:'install', num:'07', name:'Drop In & Dress', color:'#10b981', cat:'final', desc:'Engine install, bellhousing, crossmember, motor mounts, fluids, prime, break-in, tune prep.'},
+  {id:'trans', num:'08', name:'Transmission & Converter', color:'#8b5cf6', cat:'trans', desc:'4L65E rebuild, performance torque converter, shift kit, cooler, fluid.'},
+  {id:'suspension', num:'09', name:'Suspension Rebuild', color:'#3b82f6', cat:'chassis', desc:'Bushings (control arm, IRS cradle, radius rod), shocks/struts, springs, sway bars, ball joints, alignment.'}
+];
+
+const TORQUE_SPECS={
+  shortblock:[
+    {name:'Main cap bolts (inner)',spec:'15 lb-ft + 73°',note:'ARP: torque to spec, not angle — verify'},
+    {name:'Main cap bolts (outer)',spec:'15 lb-ft + 73°',note:'4-bolt mains on LS2'},
+    {name:'Rod bolts (ARP 2000)',spec:'45 lb-ft (lubed)',note:'OEM angle method differs — use ARP spec with moly'},
+    {name:'Rod bolts (OEM)',spec:'15 lb-ft + 75°',note:'OEM single-use bolts — replace'},
+    {name:'Flexplate bolts',spec:'11 lb-ft + 80°',note:'OEM; use new bolts'},
+    {name:'Oil pump to block',spec:'106 in-lb',note:''},
+    {name:'Crank balancer bolt',spec:'37 lb-ft + 140°',note:'New bolt required'},
+    {name:'Cam retainer plate',spec:'18 lb-ft',note:'Blue Loctite recommended'},
+    {name:'Timing chain cover',spec:'18 lb-ft',note:''},
+  ],
+  heads:[
+    {name:'Head bolts (OEM)',spec:'22 lb-ft + 90° + 90°',note:'Single-use TTY — replace each time'},
+    {name:'Head studs (ARP)',spec:'85 lb-ft (lubed)',note:'Use ARP Ultra-Torque lube'},
+    {name:'Rocker arm bolt',spec:'22 lb-ft',note:''},
+    {name:'Valley cover',spec:'106 in-lb',note:''},
+    {name:'Valve cover bolts',spec:'106 in-lb',note:''},
+  ],
+  cam:[
+    {name:'Cam sprocket bolt',spec:'26 lb-ft',note:'Verify against manual; some list 18+'},
+    {name:'Lifter retainer',spec:'89 in-lb',note:''},
+    {name:'Front cover bolts',spec:'18 lb-ft',note:''},
+  ],
+  topend:[
+    {name:'Intake manifold bolts',spec:'44 in-lb then 89 in-lb',note:'Two-stage; use new gasket'},
+    {name:'Throttle body bolts',spec:'89 in-lb',note:''},
+    {name:'Fuel rail bolts',spec:'89 in-lb',note:''},
+  ],
+  accessories:[
+    {name:'Water pump bolts',spec:'11 lb-ft',note:''},
+    {name:'Header / exhaust manifold',spec:'11 lb-ft + 90°',note:'New bolts recommended'},
+    {name:'Alternator bracket',spec:'37 lb-ft',note:''},
+    {name:'Motor mount to block',spec:'37 lb-ft',note:''},
+    {name:'Motor mount to chassis',spec:'70 lb-ft',note:''},
+  ],
+  install:[
+    {name:'Bellhousing bolts',spec:'55 lb-ft',note:''},
+    {name:'Trans crossmember',spec:'26 lb-ft',note:''},
+    {name:'Driveshaft bolts',spec:'15 lb-ft + 90°',note:''},
+    {name:'Motor mount to chassis',spec:'70 lb-ft',note:''},
+  ],
+  trans:[
+    {name:'Converter to flexplate',spec:'44 lb-ft',note:'3 bolts; verify converter fully seated first'},
+    {name:'Trans pan bolts',spec:'97 in-lb',note:'Even pattern; don\'t overtighten'},
+    {name:'Valve body bolts',spec:'97 in-lb',note:'Per shift-kit instructions'},
+    {name:'Trans cooler line fittings',spec:'18 lb-ft',note:'Don\'t cross-thread aluminum'},
+    {name:'Trans drain plug',spec:'44 lb-ft',note:''},
+    {name:'Crossmember to frame',spec:'26 lb-ft',note:''},
+  ],
+  suspension:[
+    {name:'Front lower control arm bolt',spec:'Verify in manual',note:'Torque with suspension at ride height'},
+    {name:'IRS cradle to body',spec:'Verify in manual',note:'Large fasteners — check FRONT/REAR SUSPENSION section'},
+    {name:'Radius rod bolts',spec:'Verify in manual',note:'Torque at ride height'},
+    {name:'Shock/strut mount',spec:'Verify in manual',note:''},
+    {name:'Sway bar bracket',spec:'Verify in manual',note:''},
+    {name:'Ball joint nut',spec:'Verify in manual',note:'Castle nut + cotter pin'},
+    {name:'Tie rod end nut',spec:'Verify in manual',note:''},
+    {name:'Lug nuts',spec:'100 lb-ft',note:'Verify; star pattern'},
+  ]
+};
+
+function seedParts(){
+  const s=(phase,name,pn,vendor,qty,cost,cat,status='needed')=>({id:uid(),phase,name,pn,vendor,qty,cost,cat,status,notes:''});
+  return [
+    s('shortblock','Mahle forged pistons 4.030" (set of 8)','930200340','Summit',1,780,'rotating'),
+    s('shortblock','Scat 4340 forged H-beam rods (set of 8)','2-350-6000-2200H','Summit',1,650,'rotating'),
+    s('shortblock','Callies 4340 forged crank','CS6000S6A','Summit',1,1100,'rotating'),
+    s('heads','Butler Performance LS Valve Covers','','Butler Performance',1,350,'valvetrain'), 
+    s('heads','Cometic MLS head gasket set','C5727-040','Cometic',2,160,'gaskets'),
+    s('heads','ARP head stud kit','234-4317','ARP',1,220,'fasteners'),
+    s('cam','Comp Cams Stage 2 LS2 cam','54-469-11','Comp Cams',1,380,'cam'),
+    s('trans','4L65E full rebuild','','Trans shop',1,1800,'trans'),
+    s('trans','Performance torque converter','','Yank / Circle D / PI',1,750,'converter')
+  ]; // Condensed seeded array for brevity
+}
+
+function seedTasks(){
+  const t=(phase,text,torque)=>({id:uid(),phase,text,torque:torque||'',done:false});
+  return [
+    t('shortblock','Install main studs into block','18 lb-ft into blind holes'),
+    t('shortblock','Install main caps & torque','15 lb-ft + 73° (ARP: verify sheet)'),
+    t('shortblock','Install oil pump','106 in-lb'),
+    t('shortblock','Torque rod bolts','ARP 2000: 45 lb-ft with moly lube'),
+    t('shortblock','Install crank balancer','37 lb-ft + 140° — new bolt required'),
+    t('heads','Install head studs — hand tight then torque','85 lb-ft with ARP Ultra-Torque lube'),
+    t('heads','Install rocker arms & prelube','22 lb-ft'),
+    t('cam','Install cam retainer plate','18 lb-ft with blue Loctite'),
+    t('cam','Install cam sprocket','26 lb-ft'),
+    t('install','Lower engine onto mounts','70 lb-ft chassis side'),
+    t('install','Connect bellhousing','55 lb-ft'),
+    t('trans','Bolt converter to flexplate','44 lb-ft — verify seated first'),
+    t('suspension','Torque lug nuts','100 lb-ft star pattern'),
+  ];
+}
+
+/* ────────────────────────────────────────
+   DATA STORE & STATE
+──────────────────────────────────────── */
+const blank={tasks:[],parts:[],notes:[],budget:{target:0}};
+let db=loadDB();
+function loadDB(){ try{const r=JSON.parse(localStorage.getItem(K)); return r?{...blank,...r}:first();}catch(e){return first();} }
+function first(){ const d=structuredClone(blank); d.tasks=seedTasks(); d.parts=seedParts(); return d; }
+function save(){localStorage.setItem(K,JSON.stringify(db));}
+
+let view='shortblock';
+let partFilter='all';
+let partPhaseFilter='all';
+let taskSearch='';
+let taskHideDone=false;
+
+/* ────────────────────────────────────────
+   NAV / ROUTING (WITH HISTORY API)
+──────────────────────────────────────── */
+function initRouter() {
+  const hash = window.location.hash.replace('#', '');
+  if(hash && (PHASES.find(p=>p.id===hash) || ['budget','torque','notes','allparts','settings'].includes(hash))) {
+    view = hash;
+  } else {
+    window.history.replaceState(null, null, '#' + view);
+  }
+  window.addEventListener('popstate', () => {
+    const h = window.location.hash.replace('#', '');
+    if(h && h !== view) { view = h; render(false); }
+  });
+}
+
+function switchView(v, updateHistory=true){
+  view=v;
+  if(updateHistory) window.history.pushState(null, null, '#' + v);
+  
+  // reset filters when leaving phase view
+  taskSearch=''; 
+  
+  document.querySelectorAll('.phase-btn,.rail-nav-btn').forEach(b=>b.classList.remove('active'));
+  const pb=document.querySelector(`[data-phase="${v}"]`); if(pb) pb.classList.add('active');
+  const nb=document.querySelector(`.rail-nav-btn[data-view="${v}"]`); if(nb) nb.classList.add('active');
+  render();
+}
+
+function buildRail(){
+  const c=document.getElementById('phase-btns'); c.innerHTML='';
+  PHASES.forEach(ph=>{
+    const tasks=db.tasks.filter(t=>t.phase===ph.id);
+    const done=tasks.filter(t=>t.done).length;
+    const pct=tasks.length?Math.round(done/tasks.length*100):0;
+    const b=document.createElement('button');
+    b.className='phase-btn'+(view===ph.id?' active':'');
+    b.dataset.phase=ph.id;
+    b.innerHTML=`<div class="ph-num">Phase ${ph.num}</div><div class="ph-name">${esc(ph.name)}</div>
+      <div class="ph-bar"><i style="width:${pct}%"></i></div>
+      <div class="ph-pct">${done}/${tasks.length} tasks &middot; ${money(phaseCost(ph.id))}</div>`;
+    b.addEventListener('click',()=>{switchView(ph.id);closeMobile();});
+    c.appendChild(b);
+  });
+}
+function closeMobile(){document.getElementById('phaseRail').classList.remove('mobile-open');}
+
+/* ────────────────────────────────────────
+   BUDGET HELPERS
+──────────────────────────────────────── */
+function phaseCost(phid){return db.parts.filter(p=>p.phase===phid).reduce((a,p)=>a+p.cost*p.qty,0);}
+function totalSpent(){return db.parts.reduce((a,p)=>a+p.cost*p.qty,0);}
+function totalRemain(){return db.parts.filter(p=>p.status!=='installed').reduce((a,p)=>a+p.cost*p.qty,0);}
+function updateTopBar(){
+  const sp=document.getElementById('tb-spent'), re=document.getElementById('tb-remain'), mt=document.getElementById('tb-mobile');
+  if(sp)sp.textContent=money(totalSpent());
+  if(re)re.textContent=money(totalRemain());
+  if(mt)mt.textContent=money(totalSpent());
+}
+
+/* ────────────────────────────────────────
+   RENDER ENGINE
+──────────────────────────────────────── */
+function render(preserveFocus=true){
+  const activeId = preserveFocus ? document.activeElement?.id : null;
+  const main=document.getElementById('main');
+  buildRail(); updateTopBar();
+  
+  const ph=PHASES.find(p=>p.id===view);
+  if(ph) main.innerHTML=renderPhase(ph);
+  else if(view==='budget') main.innerHTML=renderBudget();
+  else if(view==='torque') main.innerHTML=renderTorque();
+  else if(view==='notes') main.innerHTML=renderNotes();
+  else if(view==='allparts') main.innerHTML=renderAllParts();
+  else if(view==='settings') main.innerHTML=renderSettings();
+  
+  bindEvents();
+  if(activeId) document.getElementById(activeId)?.focus();
+}
+
+/* ── PHASE VIEW ── */
+function renderPhase(ph){
+  let tasks=db.tasks.filter(t=>t.phase===ph.id);
+  const totalTasks=tasks.length;
+  const done=tasks.filter(t=>t.done).length;
+  
+  // Apply Search & Filter
+  if(taskHideDone) tasks = tasks.filter(t => !t.done);
+  if(taskSearch) tasks = tasks.filter(t => t.text.toLowerCase().includes(taskSearch.toLowerCase()) || t.torque.toLowerCase().includes(taskSearch.toLowerCase()));
+
+  const parts=db.parts.filter(p=>p.phase===ph.id);
+  const blocked=parts.filter(p=>p.status==='needed'||p.status==='ordered').length;
+  const pCost=phaseCost(ph.id);
+  const specs=TORQUE_SPECS[ph.id]||[];
+  
+  return `
+<div class="sec-tag">Phase ${ph.num}</div>
+<div class="sec-head"><div class="sec-title">${esc(ph.name)}</div>
+  <div><button class="btn ghost sm" data-add-task="${ph.id}">+ Task</button></div></div>
+<p class="sub-txt">${esc(ph.desc)}</p>
+<div class="phase-meta">
+  <div class="pm-tile"><div class="v">${done}/${totalTasks}</div><div class="l">Tasks Done</div></div>
+  <div class="pm-tile"><div class="v" style="color:${blocked?'var(--warn)':'var(--ok)'}">${blocked}</div><div class="l">Parts Pending</div></div>
+  <div class="pm-tile"><div class="v">${money(pCost)}</div><div class="l">Phase Cost</div></div>
+</div>
+
+<h4 style="margin-bottom:12px;font-size:.85rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">Assembly Tasks</h4>
+<div class="task-controls">
+  <input type="text" id="t-search" placeholder="Search tasks or torque specs..." value="${esc(taskSearch)}" style="flex:1; max-width: 400px; padding: 8px 12px; font-size:.85rem;">
+  <label style="display:flex; align-items:center; gap:8px; font-size:.85rem; color:var(--text); cursor:pointer; font-weight:500;">
+    <input type="checkbox" id="t-hide-done" ${taskHideDone ? 'checked' : ''}> Hide Completed
+  </label>
+</div>
+<div class="task-list">
+  ${tasks.length ? tasks.map(t=>`
+  <div class="task-item${t.done?' done':''}" data-toggle-task="${t.id}">
+    <div class="task-cb">${t.done?'✓':''}</div>
+    <div><div class="task-text">${esc(t.text)}</div>
+    ${t.torque?`<span class="task-torque interactive" data-show-torque="${esc(t.torque)}" data-task-name="${esc(t.text)}">🔧 ${esc(t.torque)}</span>`:''}
+    </div>
+    <span class="del-x" data-del-task="${t.id}" style="margin-left:auto">&times;</span>
+  </div>`).join('') : '<div class="empty" style="padding: 16px;">No tasks match your filters.</div>'}
+</div>
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin:32px 0 16px">
+  <h4 style="font-size:.85rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">Parts / Materials</h4>
+  <button class="btn sm" data-show-part-form="${ph.id}">+ Add Part</button>
+</div>
+<div id="part-form-${ph.id}" style="display:none">
+  <div class="part-form">
+    <div class="pf-row c2">
+      <div><label class="fld">Part / Material</label><input id="pf-name" type="text" placeholder="e.g. ARP head stud kit"></div>
+      <div><label class="fld">Part Number</label><input id="pf-pn" type="text" placeholder="234-4317"></div>
+    </div>
+    <div class="pf-row c4">
+      <div><label class="fld">Vendor</label><input id="pf-vendor" type="text" placeholder="Summit"></div>
+      <div><label class="fld">Qty</label><input id="pf-qty" type="text" inputmode="numeric" value="1"></div>
+      <div><label class="fld">Unit Cost</label><input id="pf-cost" type="text" inputmode="decimal" placeholder="0.00"></div>
+      <div><label class="fld">Status</label><select id="pf-status">
+        <option value="needed">Needed</option><option value="ordered">Ordered</option>
+        <option value="inhand">In Hand</option><option value="installed">Installed</option>
+      </select></div>
+    </div>
+    <div><label class="fld">Category</label><select id="pf-cat">
+      <option value="labor">Labor</option><option value="rotating">Rotating</option><option value="fasteners">Fasteners</option>
+      <option value="valvetrain">Valvetrain</option><option value="gaskets">Gaskets</option><option value="other">Other</option>
+    </select></div>
+    <div><label class="fld">Notes</label><input id="pf-notes" type="text" placeholder="Optional"></div>
+    <div style="display:flex;gap:12px;margin-top:8px">
+      <button class="btn" data-save-part="${ph.id}">+ Add Part</button>
+      <button class="btn ghost" data-hide-part-form="${ph.id}">Cancel</button>
+    </div>
+  </div>
+</div>
+${renderPartsTable(parts,ph.id)}`;
+}
+
+function renderPartsTable(parts,phid){
+  if(!parts.length) return '<div class="empty">No parts logged for this phase. Add one above.</div>';
+  return `<div style="overflow-x:auto"><table class="part-table">
+<thead><tr><th>Part</th><th>Part #</th><th>Vendor</th><th>Qty</th><th>Unit $</th><th>Total</th><th>Status</th><th></th></tr></thead>
+<tbody>${parts.map(p=>`<tr>
+  <td>${esc(p.name)}${p.notes?`<div style="font-size:.75rem;color:var(--muted);margin-top:4px">${esc(p.notes)}</div>`:''}</td>
+  <td class="m-pn"><div class="pn-code">${esc(p.pn)||'—'}</div></td>
+  <td class="m-vendor">${esc(p.vendor)||'—'}</td>
+  <td class="m-qty" style="text-align:center">${p.qty}</td>
+  <td class="cost-num m-unit">${p.cost?money(p.cost):'—'}</td>
+  <td class="cost-num m-total">${p.cost?money(p.cost*p.qty):'—'}</td>
+  <td><span class="status-pill s-${p.status}" data-cycle-status="${p.id}">${p.status}</span></td>
+  <td class="m-del"><span class="del-x" data-del-part="${p.id}">&times;</span></td>
+</tr>`).join('')}
+<tr class="total-row"><td colspan="5" style="text-align:right;font-size:.8rem;color:var(--muted);padding-top:12px">Phase total</td>
+  <td class="cost-num" style="color:var(--primary-hi);font-weight:700">${money(parts.reduce((a,p)=>a+p.cost*p.qty,0))}</td>
+  <td colspan="2"></td></tr>
+</tbody></table></div>`;
+}
+
+/* ── BUDGET VIEW ── */
+function renderBudget(){
+  const cats={};
+  db.parts.forEach(p=>{cats[p.cat]=(cats[p.cat]||0)+p.cost*p.qty;});
+  const total=totalSpent(), remain=totalRemain();
+  const tgt=db.budget.target||0;
+  const phaseTotals=PHASES.map(ph=>({ph,cost:phaseCost(ph.id)}));
+  const maxPh=Math.max(...phaseTotals.map(p=>p.cost),1);
+  return `
+<div class="sec-tag">Financial</div>
+<div class="sec-head"><div class="sec-title">Budget Overview</div></div>
+<div class="bud-grid">
+  <div class="bud-tile"><div class="tv">${money(total)}</div><div class="tl">Total Parts Value</div></div>
+  <div class="bud-tile"><div class="tv" style="color:var(--warn)">${money(remain)}</div><div class="tl">Still to Spend</div></div>
+  <div class="bud-tile"><div class="tv" style="color:var(--ok)">${money(total-remain)}</div><div class="tl">In Hand / Installed</div></div>
+</div>
+<h4 style="margin:32px 0 16px;font-size:.85rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">Cost by Phase</h4>
+<div class="bud-bar-wrap">
+${phaseTotals.map(({ph,cost})=>`<div class="bud-phase-row">
+  <div class="pn">Ph ${ph.num} ${ph.name}</div>
+  <div class="bar"><i style="width:${Math.round(cost/maxPh*100)}%;background:${ph.color}"></i></div>
+  <div class="amt">${money(cost)}</div>
+</div>`).join('')}
+</div>`;
+}
+
+/* ── TORQUE VIEW ── */
+function renderTorque(){
+  return `<div class="sec-tag">Reference</div><div class="sec-head"><div class="sec-title">LS2 Torque Specs</div></div>
+<div class="torque-warn">⚠ Verify all values against the GM factory service manual and any aftermarket kit instruction sheet.</div>
+<div class="torque-grid">
+${Object.entries(TORQUE_SPECS).map(([sec,specs])=>{
+  const ph=PHASES.find(p=>p.id===sec);
+  return `<div class="torque-section"><h4>${ph?ph.name:sec}</h4>
+    ${specs.map(s=>`<div class="torque-row"><div><div>${esc(s.name)}</div>${s.note?`<div class="note">${esc(s.note)}</div>`:''}</div><div class="spec">${esc(s.spec)}</div></div>`).join('')}
+  </div>`;}).join('')}
+</div>`;
+}
+
+/* ── NOTES VIEW ── */
+function renderNotes(){
+  const sorted=[...db.notes].sort((a,b)=>b.date.localeCompare(a.date));
+  return `
+<div class="sec-tag">Log</div>
+<div class="sec-head"><div class="sec-title">Build Notes</div></div>
+<div class="part-form" style="margin-bottom:32px">
+  <div class="pf-row c2">
+    <div><label class="fld">Phase</label><select id="note-phase">${PHASES.map(p=>`<option value="${p.id}">${p.num} — ${p.name}</option>`).join('')}</select></div>
+    <div><label class="fld">Date</label><input id="note-date" type="date" value="${today()}"></div>
+  </div>
+  <div><label class="fld">Note / observation</label><textarea id="note-text" rows="3" placeholder="e.g. Machine shop called..."></textarea></div>
+  <div style="margin-top:8px"><button class="btn" id="note-add">+ Log Note</button></div>
+</div>
+${sorted.length?sorted.map(n=>{const ph=PHASES.find(p=>p.id===n.phase);return `
+  <div class="note-item"><div class="note-meta"><span class="note-date">${esc(n.date)}</span>
+      <div style="display:flex;gap:12px;align-items:center"><span class="note-phase">${ph?ph.name:n.phase}</span><span class="del-x" data-del-note="${n.id}">&times;</span></div>
+    </div><div class="note-text">${esc(n.text)}</div></div>`;}).join(''):'<div class="empty">No notes yet.</div>'}`;
+}
+
+/* ── ALL PARTS VIEW ── */
+function renderAllParts(){
+  const statuses=['all','needed','ordered','inhand','installed'];
+  let parts=[...db.parts];
+  if(partFilter!=='all') parts=parts.filter(p=>p.status===partFilter);
+  if(partPhaseFilter!=='all') parts=parts.filter(p=>p.phase===partPhaseFilter);
+  parts.sort((a,b)=>{const o={needed:0,ordered:1,inhand:2,installed:3};return o[a.status]-o[b.status];});
+  return `<div class="sec-tag">Master List</div><div class="sec-head"><div class="sec-title">All Parts</div></div>
+<div class="part-filters">
+  ${statuses.map(s=>`<button class="pf-btn${partFilter===s?' active':''}" data-status-filter="${s}">${s==='all'?'All':s}</button>`).join('')}
+  <span style="margin:0 8px;color:var(--border-hi)">|</span>
+  <button class="pf-btn${partPhaseFilter==='all'?' active':''}" data-phase-filter="all">All phases</button>
+  ${PHASES.map(p=>`<button class="pf-btn${partPhaseFilter===p.id?' active':''}" data-phase-filter="${p.id}">Ph ${p.num}</button>`).join('')}
+</div>
+${renderPartsTable(parts,'_all')}`;
+}
+
+/* ── SETTINGS ── */
+function renderSettings(){
+  return `<div class="sec-tag">Data</div><div class="sec-head"><div class="sec-title">Export / Import / Reset</div></div>
+<div class="card" style="margin-bottom:16px">
+  <p class="sub-txt">All build data is saved on this device only. Use Export to create a backup JSON file.</p>
+  <div style="display:flex;gap:12px;flex-wrap:wrap"><button class="btn" id="exp2">Export Backup</button><button class="btn ghost" id="imp2">Import Backup</button><button class="btn danger" id="wipe2">Reset All Data</button></div>
+</div>`;
+}
+
+/* ────────────────────────────────────────
+   MODAL ENGINE
+──────────────────────────────────────── */
+function openModal(title, htmlContent) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = htmlContent;
+  document.getElementById('global-modal').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('global-modal').classList.remove('open');
+  document.getElementById('modal-body').innerHTML = '';
+}
+document.getElementById('modal-close').addEventListener('click', closeModal);
+document.getElementById('global-modal').addEventListener('click', e => { if(e.target.id === 'global-modal') closeModal(); });
+
+/* ────────────────────────────────────────
+   EVENT BINDING
+──────────────────────────────────────── */
+function bindEvents(){
+  // Tasks toggle & delete
+  document.querySelectorAll('[data-toggle-task]').forEach(el=>{
+    el.addEventListener('click',e=>{
+      if(e.target.closest('[data-del-task]') || e.target.closest('[data-show-torque]')) return;
+      const t=db.tasks.find(x=>x.id===el.dataset.toggleTask);
+      if(t){t.done=!t.done;save();render();}
+    });
+  });
+  document.querySelectorAll('[data-del-task]').forEach(el=>{
+    el.addEventListener('click',e=>{e.stopPropagation(); db.tasks=db.tasks.filter(x=>x.id!==el.dataset.delTask);save();render();});
+  });
+  
+  // Search & Filter Inputs
+  const searchEl = document.getElementById('t-search');
+  if(searchEl) {
+    searchEl.addEventListener('input', e => { taskSearch = e.target.value; render(); });
+  }
+  const hideEl = document.getElementById('t-hide-done');
+  if(hideEl) {
+    hideEl.addEventListener('change', e => { taskHideDone = e.target.checked; render(); });
+  }
+
+  // Interactive Torque Spec Focus Modal
+  document.querySelectorAll('[data-show-torque]').forEach(el=>{
+    el.addEventListener('click',e=>{
+      e.stopPropagation();
+      const spec = el.dataset.showTorque;
+      const task = el.dataset.taskName;
+      const content = `
+        <div style="text-align:center; padding: 20px 0;">
+          <div style="font-size: .9rem; color: var(--muted); margin-bottom: 12px; line-height: 1.5;">${esc(task)}</div>
+          <div style="font-family: 'Fira Code', monospace; font-size: 2.2rem; font-weight: 700; color: var(--primary-hi); text-shadow: 0 2px 10px rgba(230,46,46,0.3); margin-bottom: 16px;">${esc(spec)}</div>
+          <p style="font-size: .8rem; color: var(--chrome-dim); background: var(--inset); padding: 12px; border-radius: 6px; border: 1px solid var(--border);">Verify spec and lube requirement in your assembly manual before applying final torque.</p>
+        </div>
+      `;
+      openModal('Torque Specification', content);
+    });
+  });
+
+  // Basic task/part adders
+  document.querySelectorAll('[data-add-task]').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const text=prompt('New task for '+el.dataset.addTask+':');
+      if(!text?.trim())return;
+      const torque=prompt('Torque spec (leave blank if N/A):');
+      db.tasks.push({id:uid(),phase:el.dataset.addTask,text:text.trim(),torque:torque?.trim()||'',done:false});
+      save();render();
+    });
+  });
+  document.querySelectorAll('[data-show-part-form]').forEach(el=>{
+    el.addEventListener('click',()=>{ const f=document.getElementById('part-form-'+el.dataset.showPartForm); if(f)f.style.display='block'; });
+  });
+  document.querySelectorAll('[data-hide-part-form]').forEach(el=>{
+    el.addEventListener('click',()=>{ const f=document.getElementById('part-form-'+el.dataset.hidePartForm); if(f)f.style.display='none'; });
+  });
+  document.querySelectorAll('[data-save-part]').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const name=document.getElementById('pf-name')?.value.trim();
+      if(!name){document.getElementById('pf-name')?.focus();return;}
+      db.parts.push({id:uid(),phase:el.dataset.savePart,
+        name,pn:document.getElementById('pf-pn')?.value.trim()||'', vendor:document.getElementById('pf-vendor')?.value.trim()||'',
+        qty:parseInt(document.getElementById('pf-qty')?.value)||1, cost:num(document.getElementById('pf-cost')?.value),
+        status:document.getElementById('pf-status')?.value||'needed', cat:document.getElementById('pf-cat')?.value||'other',
+        notes:document.getElementById('pf-notes')?.value.trim()||''});
+      save();render();
+    });
+  });
+  document.querySelectorAll('[data-cycle-status]').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const order=['needed','ordered','inhand','installed'];
+      const p=db.parts.find(x=>x.id===el.dataset.cycleStatus);
+      if(p){p.status=order[(order.indexOf(p.status)+1)%order.length];save();render();}
+    });
+  });
+  document.querySelectorAll('[data-del-part]').forEach(el=>{
+    el.addEventListener('click',()=>{ if(!confirm('Remove this part?'))return; db.parts=db.parts.filter(x=>x.id!==el.dataset.delPart);save();render(); });
+  });
+  
+  // Data actions
+  document.querySelectorAll('[data-status-filter]').forEach(el=>{
+    el.addEventListener('click',()=>{partFilter=el.dataset.statusFilter;render();});
+  });
+  document.querySelectorAll('[data-phase-filter]').forEach(el=>{
+    el.addEventListener('click',()=>{partPhaseFilter=el.dataset.phaseFilter;render();});
+  });
+  document.querySelectorAll('.rail-nav-btn[data-view]').forEach(b=>{
+    b.addEventListener('click',()=>{switchView(b.dataset.view);closeMobile();});
+  });
+  ['exp','exp2'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('click',doExport);});
+  ['imp','imp2'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('click',()=>document.getElementById('impFile').click());});
+  ['wipe','wipe2'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('click',doWipe);});
+}
+
+/* ── TOOLKIT MODAL LOGIC ── */
+document.getElementById('btn-toolkit').addEventListener('click', () => {
+  const content = `
+    <div style="display: grid; gap: 20px;">
+      <div style="background: var(--inset); padding: 16px; border-radius: var(--radius); border: 1px solid var(--border);">
+        <h4 style="font-size: .85rem; color: var(--primary-hi); margin-bottom: 12px; text-transform: uppercase; font-family: 'Fira Code', monospace;">Torque Conversion</h4>
+        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px;">
+          <input type="number" id="tk-tq-val" placeholder="Value" style="width: 100px;">
+          <select id="tk-tq-type" style="flex: 1;"><option value="inToFt">in-lbs to ft-lbs</option><option value="ftToIn">ft-lbs to in-lbs</option><option value="ftToNm">ft-lbs to Nm</option></select>
+        </div>
+        <div style="font-family: 'Fira Code', monospace; font-size: 1.2rem; font-weight: bold; color: var(--text); padding: 8px; text-align: center; background: var(--surface); border: 1px solid var(--border-hi); border-radius: 4px;" id="tk-tq-res">0.00</div>
+      </div>
+      
+      <div style="background: var(--inset); padding: 16px; border-radius: var(--radius); border: 1px solid var(--border);">
+        <h4 style="font-size: .85rem; color: var(--primary-hi); margin-bottom: 12px; text-transform: uppercase; font-family: 'Fira Code', monospace;">Clearance Conversion</h4>
+        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px;">
+          <input type="number" id="tk-mm-val" placeholder="Value" style="width: 100px;">
+          <select id="tk-mm-type" style="flex: 1;"><option value="inToMm">Inches to mm</option><option value="mmToIn">mm to Inches</option></select>
+        </div>
+        <div style="font-family: 'Fira Code', monospace; font-size: 1.2rem; font-weight: bold; color: var(--text); padding: 8px; text-align: center; background: var(--surface); border: 1px solid var(--border-hi); border-radius: 4px;" id="tk-mm-res">0.000</div>
+      </div>
+    </div>
+  `;
+  openModal('Mechanic Toolkit', content);
+
+  // Bind live calculation events
+  const calcTq = () => {
+    const v = parseFloat(document.getElementById('tk-tq-val').value) || 0;
+    const t = document.getElementById('tk-tq-type').value;
+    let res = 0; let unit = '';
+    if(t === 'inToFt') { res = v / 12; unit = 'ft-lbs'; }
+    if(t === 'ftToIn') { res = v * 12; unit = 'in-lbs'; }
+    if(t === 'ftToNm') { res = v * 1.355818; unit = 'Nm'; }
+    document.getElementById('tk-tq-res').textContent = res.toFixed(2) + ' ' + unit;
+  };
+  const calcMm = () => {
+    const v = parseFloat(document.getElementById('tk-mm-val').value) || 0;
+    const t = document.getElementById('tk-mm-type').value;
+    let res = 0; let unit = '';
+    if(t === 'inToMm') { res = v * 25.4; unit = 'mm'; }
+    if(t === 'mmToIn') { res = v / 25.4; unit = 'in'; }
+    document.getElementById('tk-mm-res').textContent = res.toFixed(4) + ' ' + unit;
+  };
+  
+  document.getElementById('tk-tq-val').addEventListener('input', calcTq);
+  document.getElementById('tk-tq-type').addEventListener('change', calcTq);
+  document.getElementById('tk-mm-val').addEventListener('input', calcMm);
+  document.getElementById('tk-mm-type').addEventListener('change', calcMm);
+});
+
+/* ── DATA ACTIONS ── */
+function doExport(){
+  const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ls2-build-backup.json';a.click();
+}
+function doWipe(){
+  if(confirm('Reset all build data? This cannot be undone.')){db=first();save();render();}
+}
+document.getElementById('impFile').addEventListener('change',e=>{
+  const f=e.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{try{db={...blank,...JSON.parse(r.result)};save();render();} catch(err){alert('Could not read backup file.');}};r.readAsText(f);e.target.value='';
+});
+document.getElementById('menuBtn').addEventListener('click',()=>{ document.getElementById('phaseRail').classList.toggle('mobile-open'); });
+document.getElementById('phaseRail').addEventListener('click',e=>{
+  const b=e.target.closest('.phase-btn'); if(!b)return;
+  switchView(b.dataset.phase); closeMobile();
+});
+
+// Boot Application
+initRouter();
+render();
+</script>
+</body>
+</html>
